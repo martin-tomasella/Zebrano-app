@@ -33,7 +33,7 @@ React Native + Expo Router v4 · TypeScript · Supabase · TanStack Query · Zus
 - Producción: cola con `ot_iniciar`, `ot_reordenar`, `ot_avance`, `ot_entregar` (solo admin y gestión, validado en la base).
 
 ## Build del APK
-- Subir `versionCode` en app.json, commitear y pushear un tag `vN` → GitHub Actions (`.github/workflows/apk.yml`) compila con Gradle y publica `zebrano-vN.apk` en Releases. No usa EAS.
+- Subir `versionCode` en app.json, commitear y pushear a main → GitHub Actions (`.github/workflows/apk.yml`) compila con Gradle y publica `zebrano-vN.apk` en Releases (N = versionCode). No usa EAS.
 
 ## Estructura de carpetas de proyectos en Storage
 zebrano-proyectos/

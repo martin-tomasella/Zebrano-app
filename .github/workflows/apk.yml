@@ -1,9 +1,12 @@
 name: APK Android
 
-# Compila el APK con Gradle (sin EAS) y lo publica como Release del repo.
+# Compila el APK con Gradle (sin EAS) y lo publica como Release "v<versionCode>".
+# Se dispara al subir a main un cambio en app.json (subir versionCode) o en este archivo.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths: ['app.json', '.github/workflows/apk.yml']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -18,13 +21,17 @@ jobs:
         with: { node-version: '20', cache: 'npm' }
       - uses: actions/setup-java@v4
         with: { distribution: 'temurin', java-version: '17' }
+      - id: v
+        run: echo "tag=v$(node -p "require('./app.json').expo.android.versionCode")" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npx expo prebuild --platform android --no-install
       # ponytail: firma con el keystore de debug que genera prebuild; para Play Store hace falta un keystore propio.
       - run: ./gradlew assembleRelease --no-daemon
         working-directory: android
-      - run: cp android/app/build/outputs/apk/release/app-release.apk zebrano-${{ github.ref_name }}.apk
+      - run: cp android/app/build/outputs/apk/release/app-release.apk zebrano-${{ steps.v.outputs.tag }}.apk
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          files: zebrano-${{ github.ref_name }}.apk
+          tag_name: ${{ steps.v.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          name: Zebrano ${{ steps.v.outputs.tag }}
+          files: zebrano-${{ steps.v.outputs.tag }}.apk
