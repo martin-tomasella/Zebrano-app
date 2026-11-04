@@ -133,7 +133,7 @@ function EconRow({ label, value }: { label: string; value: number }) {
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 }}>
       <Text style={{ color: colors.text2, fontSize: 13 }}>{label}</Text>
-      <Text style={{ color: colors.text1, fontSize: 13, fontFamily: 'DMSans_400Regular' }}>${Number(value ?? 0).toLocaleString('es-AR')}</Text>
+      <Text style={{ color: colors.text1, fontSize: 13, fontFamily: 'InstrumentSans_400Regular' }}>${Number(value ?? 0).toLocaleString('es-AR')}</Text>
     </View>
   );
 }
@@ -142,24 +142,24 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgDeep },
   loading: { color: colors.text3, textAlign: 'center', marginTop: 60 },
   header: { backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md, borderWidth: 1, borderColor: colors.borderGold },
-  tipo: { fontSize: 20, fontFamily: 'Syne_600SemiBold', color: colors.text1, textTransform: 'capitalize' },
+  tipo: { fontSize: 20, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1, textTransform: 'capitalize' },
   cliente: { fontSize: 14, color: colors.honey, marginTop: 4 },
-  fecha: { fontSize: 11, color: colors.text3, marginTop: 4, fontFamily: 'DMSans_400Regular' },
+  fecha: { fontSize: 11, color: colors.text3, marginTop: 4, fontFamily: 'InstrumentSans_400Regular' },
   section: { backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
-  sectionTitle: { fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: colors.text3, fontFamily: 'DMSans_400Regular', marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 11, letterSpacing: 2, textTransform: 'uppercase', color: colors.text3, fontFamily: 'InstrumentSans_400Regular', marginBottom: spacing.sm },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.sm },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4 },
-  totalLabel: { fontSize: 15, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
-  totalValue: { fontSize: 18, fontFamily: 'Syne_600SemiBold', color: colors.amber },
-  horas: { fontSize: 11, color: colors.text3, marginTop: 8, fontFamily: 'DMSans_400Regular' },
+  totalLabel: { fontSize: 15, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1 },
+  totalValue: { fontSize: 18, fontFamily: 'InstrumentSans_600SemiBold', color: colors.amber },
+  horas: { fontSize: 11, color: colors.text3, marginTop: 8, fontFamily: 'InstrumentSans_400Regular' },
   tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: colors.border, paddingBottom: 6, marginBottom: 4 },
   tableRow: { flexDirection: 'row', paddingVertical: 5, borderBottomWidth: 1, borderColor: `${colors.border}50` },
-  th: { flex: 1, fontSize: 9, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'DMSans_400Regular' },
-  td: { flex: 1, fontSize: 12, color: colors.text2, fontFamily: 'DMSans_400Regular' },
-  moduloTitle: { fontSize: 13, fontFamily: 'Syne_600SemiBold', color: colors.gold, marginBottom: 6 },
+  th: { flex: 1, fontSize: 9, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1, fontFamily: 'InstrumentSans_400Regular' },
+  td: { flex: 1, fontSize: 12, color: colors.text2, fontFamily: 'InstrumentSans_400Regular' },
+  moduloTitle: { fontSize: 13, fontFamily: 'InstrumentSans_600SemiBold', color: colors.gold, marginBottom: 6 },
   actions: { gap: spacing.sm, marginBottom: spacing.xl },
   btnPrimary: { backgroundColor: colors.gold, borderRadius: radius.md, padding: spacing.md, alignItems: 'center' },
-  btnPrimaryText: { color: colors.bgDeep, fontSize: 15, fontFamily: 'Syne_600SemiBold' },
+  btnPrimaryText: { color: colors.bgDeep, fontSize: 15, fontFamily: 'InstrumentSans_600SemiBold' },
   btnGhost: { backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
   btnGhostText: { color: colors.text2, fontSize: 13 },
 });

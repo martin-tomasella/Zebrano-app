@@ -8,16 +8,19 @@ import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import { llamarFuncion } from '@/lib/supabase';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { fonts } from '@/lib/theme';
 import { comprimir, tomarFoto, type Foto } from '@/lib/imagen';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const C = {
-  bg:'#0d0f0e', card:'#1a2020', raised:'#1f2826',
-  gold:'#c9a84c', honey:'#e0b86a', amber:'#f0c97a',
-  green:'#6bbf84', red:'#e06060', teak:'#8b5e3c',
-  t1:'rgba(255,255,255,0.92)', t2:'rgba(255,255,255,0.55)',
-  t3:'rgba(255,255,255,0.28)', border:'rgba(255,255,255,0.06)',
-  borderGold:'rgba(201,168,76,0.25)',
+  bg:'#0E141B', card:'#161F28', raised:'#1C2733',
+  gold:'#E2A848', honey:'#E2A848', amber:'#E8C88E',
+  green:'#2EB89E', red:'#F07064', teak:'#8b5e3c',
+  t1:'#E6EBF0', t2:'#9AA8B5',
+  t3:'#7D8B99', border:'#263240',
+  borderGold:'rgba(226,168,72,0.35)',
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────
@@ -83,12 +86,12 @@ function NogalSVGViewer({
     <View style={sv.wrap}>
       <View style={sv.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text style={sv.title}>📐 Plano técnico — Nogal</Text>
+          <Text style={sv.title}>Plano leído</Text>
           <TouchableOpacity onPress={onVerPlano} style={{ backgroundColor: 'rgba(201,168,76,0.15)', padding: 6, borderRadius: 6 }}>
-            <Text style={{ color: C.gold, fontSize: 11 }}>⛶ Pantalla completa</Text>
+            <Text style={{ color: C.green, fontSize: 12, fontFamily: fonts.semibold }}>Ampliar</Text>
           </TouchableOpacity>
         </View>
-        <Text style={sv.sub}>Pellizcar para zoom · Toca ⛶ para ver en pantalla completa</Text>
+        <Text style={sv.sub}>Pellizcá para hacer zoom</Text>
       </View>
       <View style={sv.wvBox}>
         {cargando && (
@@ -111,7 +114,7 @@ function NogalSVGViewer({
       </View>
       <View style={sv.actions}>
         <TouchableOpacity style={[sv.btn, sv.btnSec]} onPress={onAjustar} activeOpacity={0.75}>
-          <Text style={sv.btnSecTxt}>✏️ Ajustar</Text>
+          <Text style={sv.btnSecTxt}>Ajustar</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[sv.btn, sv.btnPri, aprobando && sv.btnDis]}
@@ -121,7 +124,7 @@ function NogalSVGViewer({
         >
           {aprobando
             ? <ActivityIndicator size="small" color="#fff" />
-            : <Text style={sv.btnPriTxt}>✅ Aprobar → Render</Text>}
+            : <Text style={sv.btnPriTxt}>Aprobar y ver render</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -131,17 +134,17 @@ function NogalSVGViewer({
 const sv = StyleSheet.create({
   wrap:    { backgroundColor: C.card, borderRadius: 12, overflow: 'hidden', marginVertical: 10, borderWidth: 1, borderColor: C.borderGold },
   header:  { padding: 10, backgroundColor: C.raised, borderBottomWidth: 1, borderBottomColor: C.border },
-  title:   { color: C.amber, fontSize: 14, fontWeight: '600' },
+  title:   { color: C.amber, fontSize: 14, fontFamily: fonts.semibold },
   sub:     { color: C.t3, fontSize: 11, marginTop: 2 },
   wvBox:   { height: SH * 0.42, backgroundColor: '#fff', position: 'relative' },
   loading: { ...StyleSheet.absoluteFillObject, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
   actions: { flexDirection: 'row', gap: 8, padding: 10, backgroundColor: C.raised, borderTopWidth: 1, borderTopColor: C.border },
   btn:     { flex: 1, paddingVertical: 11, borderRadius: 8, alignItems: 'center', justifyContent: 'center', minHeight: 44 },
   btnSec:  { backgroundColor: C.card, borderWidth: 1, borderColor: C.borderGold },
-  btnSecTxt: { color: C.t2, fontSize: 13, fontWeight: '500' },
-  btnPri:  { backgroundColor: '#2D5016' },
-  btnPriTxt: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  btnDis:  { backgroundColor: '#4a7a28' },
+  btnSecTxt: { color: C.t2, fontSize: 13, fontFamily: fonts.medium },
+  btnPri:  { backgroundColor: C.green },
+  btnPriTxt: { color: '#04211C', fontSize: 14, fontFamily: fonts.bold },
+  btnDis:  { opacity: 0.6 },
 });
 
 // ─── TIPOS ────────────────────────────────────────────────────────
@@ -173,6 +176,9 @@ export default function CotizadorScreen() {
   const [pdfUrl, setPdfUrl]           = useState<string | null>(null);
   const [hojaUrl, setHojaUrl]         = useState<string | null>(null);
 
+  const insets = useSafeAreaInsets();
+  // Etapa actual para la barra de progreso: Plano → Render → Presupuesto → A la cola
+  const etapa = otCreada ? 3 : (resumen || pdfUrl) ? 2 : renderUrl ? 1 : 0;
   const scroll = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
 
   // ── GRABAR AUDIO ───────────────────────────────────────────────
@@ -235,7 +241,7 @@ export default function CotizadorScreen() {
   const aprobarSVG = useCallback(async () => {
     if (!sesionId || aprobandoSVG) return;
     setAprobSVG(true);
-    setMsgs(p => [...p, { id: Date.now().toString(), rol: 'user', texto: '✅ Apruebo el plano técnico — generá el render fotorrealista', timestamp: new Date().toISOString() }]);
+    setMsgs(p => [...p, { id: Date.now().toString(), rol: 'user', texto: 'Apruebo el plano técnico: generá el render', timestamp: new Date().toISOString() }]);
     scroll();
     try {
       const resp = await chatCotizador({ sesion_id: sesionId, aprobar_svg: true });
@@ -259,7 +265,7 @@ export default function CotizadorScreen() {
       'Aprobar cotización',
       `Precio: $${resumen?.precioSugerido?.toLocaleString('es-AR')}\n¿Generar Orden de Trabajo?`,
       [{ text: 'Cancelar', style: 'cancel' }, {
-        text: 'Aprobar y crear OT', onPress: async () => {
+        text: 'Aprobar y mandar a la cola', onPress: async () => {
           setAprobando(true);
           try {
             const resp = await chatCotizador({ sesion_id: sesionId, aprobar_cotizacion: true });
@@ -293,15 +299,24 @@ export default function CotizadorScreen() {
       <View style={s.container}>
 
         {/* HEADER */}
-        <View style={s.header}>
-          <View style={s.dot} />
-          <Text style={s.agentLabel}>Nogal · Cotizador</Text>
-          <View style={{ flex: 1 }} />
-          {sesionId && (
-            <TouchableOpacity style={s.headerBtn} onPress={() => { setSesionId(null); setMsgs([]); setResumen(null); setRenderUrl(null); setOtCreada(null); setPdfUrl(null); setHojaUrl(null); }}>
-              <Text style={{ color: C.gold, fontSize: 11 }}>+ Nueva</Text>
-            </TouchableOpacity>
-          )}
+        <View style={[s.header, { paddingTop: insets.top + 16 }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={{ flex: 1, color: C.t1, fontSize: 22, fontFamily: fonts.bold }}>{sesionId ? 'Cotización' : 'Nueva cotización'}</Text>
+            {sesionId && (
+              <TouchableOpacity style={s.headerBtn} onPress={() => { setSesionId(null); setMsgs([]); setResumen(null); setRenderUrl(null); setOtCreada(null); setPdfUrl(null); setHojaUrl(null); }}>
+                <Feather name="plus" size={16} color={C.green} />
+                <Text style={{ color: C.green, fontSize: 13, fontFamily: fonts.semibold }}>Nueva</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 6 }}>
+            {['Plano', 'Render', 'Presupuesto', 'A la cola'].map((e, i) => (
+              <View key={e} style={{ flex: 1, gap: 6 }}>
+                <View style={{ height: 4, borderRadius: 2, backgroundColor: i <= etapa ? C.green : C.border }} />
+                <Text style={{ fontSize: 12, fontFamily: i === etapa ? fonts.semibold : fonts.regular, color: i === etapa ? C.green : C.t2 }}>{e}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* CHAT */}
@@ -310,7 +325,7 @@ export default function CotizadorScreen() {
           {msgs.length === 0 && (
             <View style={{ alignItems: 'center', paddingTop: 50 }}>
               <Text style={{ fontSize: 48, color: C.gold }}>◇</Text>
-              <Text style={{ fontSize: 18, color: C.t1, fontWeight: '600', marginTop: 8 }}>Nogal</Text>
+              <Text style={{ fontSize: 18, color: C.t1, fontFamily: fonts.semibold, marginTop: 8 }}>Nogal</Text>
               <Text style={{ fontSize: 13, color: C.t3, textAlign: 'center', marginTop: 6 }}>
                 Describí el mueble y genero el plano técnico{'\n'}con cotas reales antes del render
               </Text>
@@ -380,18 +395,18 @@ export default function CotizadorScreen() {
           {/* RESUMEN COTIZACIÓN */}
           {resumen && !otCreada && (
             <View style={{ backgroundColor: C.raised, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: C.borderGold, marginTop: 8 }}>
-              <Text style={{ color: C.amber, fontSize: 13, fontWeight: '600', marginBottom: 10 }}>Cotización lista</Text>
+              <Text style={{ color: C.amber, fontSize: 13, fontFamily: fonts.semibold, marginBottom: 10 }}>Cotización lista</Text>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                <Text style={{ color: C.t1, fontSize: 15, fontWeight: '600' }}>Precio al cliente</Text>
-                <Text style={{ color: C.amber, fontSize: 18, fontWeight: '700' }}>${resumen.precioSugerido?.toLocaleString('es-AR')}</Text>
+                <Text style={{ color: C.t1, fontSize: 15, fontFamily: fonts.semibold }}>Precio al cliente</Text>
+                <Text style={{ color: C.amber, fontSize: 18, fontFamily: fonts.bold }}>${resumen.precioSugerido?.toLocaleString('es-AR')}</Text>
               </View>
               {pdfUrl && (
                 <TouchableOpacity style={{ borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: C.borderGold }} onPress={() => Linking.openURL(pdfUrl)}>
-                  <Text style={{ color: C.gold, fontSize: 13, fontWeight: '600' }}>📄 Ver presupuesto (PDF)</Text>
+                  <Text style={{ color: C.gold, fontSize: 13, fontFamily: fonts.semibold }}>Ver presupuesto (PDF)</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity style={{ backgroundColor: C.gold, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 12 }} onPress={aprobar} disabled={aprobando}>
-                {aprobando ? <ActivityIndicator color={C.bg} /> : <Text style={{ color: C.bg, fontSize: 14, fontWeight: '700' }}>Aprobar y generar OT</Text>}
+              <TouchableOpacity style={{ backgroundColor: C.green, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 12 }} onPress={aprobar} disabled={aprobando}>
+                {aprobando ? <ActivityIndicator color="#04211C" /> : <Text style={{ color: '#04211C', fontSize: 15, fontFamily: fonts.bold }}>Aprobar y mandar a la cola</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={{ backgroundColor: C.card, borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: C.border }} onPress={() => setInput('Quiero modificar: ')}>
                 <Text style={{ color: C.t2, fontSize: 13 }}>Solicitar modificación</Text>
@@ -401,13 +416,13 @@ export default function CotizadorScreen() {
 
           {/* OT CREADA */}
           {otCreada && (
-            <View style={{ backgroundColor: '#1a2e1a', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#6bbf8440', marginTop: 8, alignItems: 'center' }}>
-              <Text style={{ fontSize: 28 }}>✅</Text>
-              <Text style={{ color: C.green, fontSize: 15, fontWeight: '700', marginTop: 6 }}>{otCreada} creada</Text>
+            <View style={{ backgroundColor: 'rgba(46,184,158,0.10)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(46,184,158,0.35)', marginTop: 8, alignItems: 'center' }}>
+              <Feather name="check-circle" size={30} color={C.green} />
+              <Text style={{ color: C.green, fontSize: 15, fontFamily: fonts.bold, marginTop: 6 }}>{otCreada} creada</Text>
               <Text style={{ color: C.t3, fontSize: 12, marginTop: 4 }}>Quedó en la cola de fabricación</Text>
               {hojaUrl && (
                 <TouchableOpacity onPress={() => Linking.openURL(hojaUrl)} style={{ marginTop: 8 }}>
-                  <Text style={{ color: C.gold, fontSize: 13 }}>📄 Hoja de taller (PDF)</Text>
+                  <Text style={{ color: C.gold, fontSize: 13 }}>Hoja de taller (PDF)</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -417,7 +432,7 @@ export default function CotizadorScreen() {
 
         {/* PREVIEW IMÁGENES */}
         {imgs.length > 0 && (
-          <ScrollView horizontal style={{ maxHeight: 90, backgroundColor: '#111714', borderTopWidth: 1, borderTopColor: C.border }} contentContainerStyle={{ gap: 8, padding: 8 }}>
+          <ScrollView horizontal style={{ maxHeight: 90, backgroundColor: '#121A22', borderTopWidth: 1, borderTopColor: C.border }} contentContainerStyle={{ gap: 8, padding: 8 }}>
             {imgs.map((f, i) => (
               <View key={i} style={{ position: 'relative' }}>
                 <Image source={{ uri: f.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
@@ -431,8 +446,8 @@ export default function CotizadorScreen() {
 
         {/* INPUT */}
         <View style={s.inputArea}>
-          <TouchableOpacity onPress={takePhoto} style={s.iconBtn}><Text style={{ fontSize: 18 }}>📷</Text></TouchableOpacity>
-          <TouchableOpacity onPress={pickImg} style={s.iconBtn}><Text style={{ fontSize: 18 }}>🖼️</Text></TouchableOpacity>
+          <TouchableOpacity onPress={takePhoto} style={s.iconBtn} accessibilityLabel="Sacar foto"><Feather name="camera" size={20} color={C.t1} /></TouchableOpacity>
+          <TouchableOpacity onPress={pickImg} style={s.iconBtn} accessibilityLabel="Elegir de la galería"><Feather name="image" size={20} color={C.t1} /></TouchableOpacity>
           <TouchableOpacity
             style={[s.iconBtn, grabando && { backgroundColor: '#e0606030', borderColor: C.red }]}
             onPress={grabando ? detenerGrabacion : iniciarGrabacion}
@@ -440,7 +455,7 @@ export default function CotizadorScreen() {
           >
             {transcribiendo
               ? <ActivityIndicator size="small" color={C.gold} />
-              : <Text style={{ fontSize: grabando ? 22 : 18 }}>{grabando ? '⏹️' : '🎤'}</Text>}
+              : <Feather name={grabando ? 'square' : 'mic'} size={20} color={grabando ? C.red : C.gold} />}
           </TouchableOpacity>
           <TextInput
             style={[s.input, grabando && { borderColor: C.red }]}
@@ -452,7 +467,7 @@ export default function CotizadorScreen() {
             maxLength={2000}
           />
           <TouchableOpacity style={[s.sendBtn, !canSend && { opacity: 0.35 }]} onPress={enviar} disabled={!canSend}>
-            {loading ? <ActivityIndicator size="small" color={C.bg} /> : <Text style={{ color: C.bg, fontSize: 20, fontWeight: '700' }}>→</Text>}
+            {loading ? <ActivityIndicator size="small" color={C.bg} /> : <Feather name="arrow-up" size={22} color="#04211C" />}
           </TouchableOpacity>
         </View>
       </View>
@@ -460,14 +475,14 @@ export default function CotizadorScreen() {
       {/* MODAL SVG PANTALLA COMPLETA */}
       <Modal visible={!!modalSvg} transparent={false} animationType="slide" statusBarTranslucent onRequestClose={() => setModalSvg(null)}>
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#1a2020', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-            <Text style={{ color: '#c9a84c', fontSize: 14, fontWeight: '600' }}>📐 Plano técnico</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#161F28', borderBottomWidth: 1, borderBottomColor: '#263240' }}>
+            <Text style={{ color: '#E2A848', fontSize: 14, fontFamily: fonts.semibold }}>Plano técnico</Text>
             <TouchableOpacity
               onPress={() => setModalSvg(null)}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={{ backgroundColor: '#e06060', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>✕ Cerrar</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontFamily: fonts.bold }}>✕ Cerrar</Text>
             </TouchableOpacity>
           </View>
           <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', paddingVertical: 6, backgroundColor: '#f5f5f5' }}>Pellizcar para zoom · Scroll para mover</Text>
@@ -488,13 +503,13 @@ export default function CotizadorScreen() {
       <Modal visible={!!modalImg} transparent={false} animationType="fade" statusBarTranslucent onRequestClose={() => setModalImg(null)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#111' }}>
-            <Text style={{ color: '#c9a84c', fontSize: 13 }}>Render fotorrealista</Text>
+            <Text style={{ color: '#E2A848', fontSize: 13 }}>Render fotorrealista</Text>
             <TouchableOpacity
               onPress={() => setModalImg(null)}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={{ backgroundColor: '#e06060', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
-              <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>✕ Cerrar</Text>
+              <Text style={{ color: '#fff', fontSize: 14, fontFamily: fonts.bold }}>✕ Cerrar</Text>
             </TouchableOpacity>
           </View>
           <Text style={{ color: '#555', fontSize: 11, textAlign: 'center', paddingVertical: 4, backgroundColor: '#111' }}>Pellizcar para zoom</Text>
@@ -515,19 +530,19 @@ export default function CotizadorScreen() {
 
 // ─── ESTILOS ──────────────────────────────────────────────────────
 const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#0d0f0e' },
-  header:      { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, backgroundColor: '#111714', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  dot:         { width: 10, height: 10, borderRadius: 5, backgroundColor: '#c9a84c' },
-  agentLabel:  { color: '#c9a84c', fontSize: 13, fontWeight: '600' },
-  headerBtn:   { backgroundColor: 'rgba(201,168,76,0.12)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(201,168,76,0.25)' },
-  exBtn:       { backgroundColor: '#1a2020', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  bubble:      { borderRadius: 12, padding: 12, marginBottom: 4 },
-  bubbleUser:  { backgroundColor: 'rgba(139,94,60,0.35)', alignSelf: 'flex-end', maxWidth: '88%', borderWidth: 1, borderColor: 'rgba(139,94,60,0.45)' },
-  bubbleAgent: { backgroundColor: '#1a2020', alignSelf: 'flex-start', maxWidth: '96%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  renderAction:{ flex: 1, backgroundColor: '#1a2020', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(201,168,76,0.25)' },
-  inputArea:   { flexDirection: 'row', alignItems: 'flex-end', gap: 5, padding: 10, backgroundColor: '#111714', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' },
-  iconBtn:     { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a2020', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
-  input:       { flex: 1, backgroundColor: '#1a2020', borderRadius: 8, borderWidth: 1, borderColor: '#2a2a2a', color: 'rgba(255,255,255,0.92)', paddingHorizontal: 10, paddingVertical: 9, fontSize: 13, maxHeight: 100 },
-  sendBtn:     { width: 42, height: 42, backgroundColor: '#c9a84c', borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  modalBtn:    { backgroundColor: '#1a2020', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(201,168,76,0.3)' },
+  container:   { flex: 1, backgroundColor: '#0E141B' },
+  header:      { gap: 16, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#0E141B', borderBottomWidth: 1, borderBottomColor: '#263240' },
+  dot:         { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E2A848' },
+  agentLabel:  { color: '#E2A848', fontSize: 13, fontFamily: fonts.semibold },
+  headerBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 8 },
+  exBtn:       { backgroundColor: '#161F28', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#263240' },
+  bubble:      { borderRadius: 16, padding: 12, marginBottom: 4 },
+  bubbleUser:  { backgroundColor: '#1C2733', alignSelf: 'flex-end', maxWidth: '88%', borderBottomRightRadius: 4 },
+  bubbleAgent: { backgroundColor: '#161F28', alignSelf: 'flex-start', maxWidth: '96%', borderWidth: 1, borderColor: '#263240' },
+  renderAction:{ flex: 1, backgroundColor: '#161F28', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#263240' },
+  inputArea:   { flexDirection: 'row', alignItems: 'flex-end', gap: 5, padding: 10, backgroundColor: '#121A22', borderTopWidth: 1, borderTopColor: '#263240' },
+  iconBtn:     { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#161F28', borderRadius: 22, borderWidth: 1, borderColor: '#263240' },
+  input:       { flex: 1, backgroundColor: '#161F28', borderRadius: 22, borderWidth: 1, borderColor: '#263240', color: '#E6EBF0', paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, maxHeight: 100, fontFamily: fonts.regular },
+  sendBtn:     { width: 44, height: 44, backgroundColor: C.green, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  modalBtn:    { backgroundColor: '#161F28', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: '#263240' },
 });

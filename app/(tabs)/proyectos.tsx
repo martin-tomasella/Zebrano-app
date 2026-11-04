@@ -57,7 +57,7 @@ function EmptyState({ label, sub }: { label: string; sub: string }) {
   return (
     <View style={{ alignItems: 'center', paddingTop: 60 }}>
       <Text style={{ fontSize: 32, marginBottom: 12 }}>◻</Text>
-      <Text style={{ color: colors.text1, fontSize: 16, fontFamily: 'Syne_600SemiBold' }}>{label}</Text>
+      <Text style={{ color: colors.text1, fontSize: 16, fontFamily: 'InstrumentSans_600SemiBold' }}>{label}</Text>
       <Text style={{ color: colors.text3, fontSize: 13, marginTop: 6, textAlign: 'center' }}>{sub}</Text>
     </View>
   );
@@ -66,14 +66,14 @@ function EmptyState({ label, sub }: { label: string; sub: string }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgDeep },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.md },
-  title: { fontSize: 22, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
+  title: { fontSize: 22, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1 },
   addBtn: { backgroundColor: colors.gold, borderRadius: radius.sm, paddingHorizontal: 14, paddingVertical: 8 },
-  addBtnText: { color: colors.bgDeep, fontSize: 13, fontFamily: 'Syne_600SemiBold' },
+  addBtnText: { color: colors.bgDeep, fontSize: 13, fontFamily: 'InstrumentSans_600SemiBold' },
   card: { backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, borderWidth: 1, borderColor: colors.border },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  cardName: { fontSize: 15, fontFamily: 'Syne_600SemiBold', color: colors.text1, flex: 1, marginRight: 8 },
+  cardName: { fontSize: 15, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1, flex: 1, marginRight: 8 },
   cardClient: { fontSize: 12, color: colors.text3 },
-  cardValue: { fontSize: 16, fontFamily: 'Syne_600SemiBold', color: colors.honey, marginTop: 6 },
+  cardValue: { fontSize: 16, fontFamily: 'InstrumentSans_600SemiBold', color: colors.honey, marginTop: 6 },
   pill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
   pillText: { fontSize: 10 },
 });

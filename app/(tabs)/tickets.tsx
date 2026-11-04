@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase, llamarFuncion } from '@/lib/supabase';
 import { tomarFoto, base64ABytes, type Foto } from '@/lib/imagen';
 import { useAppStore } from '@/store';
-import { colors, spacing, radius } from '@/lib/theme';
+import { colors, spacing, radius, fonts } from '@/lib/theme';
+import { Feather } from '@expo/vector-icons';
 
 type Tipo = 'factura' | 'gasto';
 // Mismas categorías que Caja chica en la web
@@ -76,68 +77,110 @@ export default function TicketsScreen() {
     }
   }
 
-  const input = { backgroundColor: colors.bgCard, borderColor: colors.borderMid, borderWidth: 1, borderRadius: radius.md, color: colors.text1, padding: spacing.md };
+  const input = { height: 48, backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1, borderRadius: 12, color: colors.text1, paddingHorizontal: 14, fontSize: 15, fontFamily: fonts.regular };
+  const listo = !!foto && !enviando;
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: colors.bgDeep }} contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-        <Opcion texto="Factura de proveedor" activo={tipo === 'factura'} onPress={() => setTipo('factura')} />
-        <Opcion texto="Ticket de gasto" activo={tipo === 'gasto'} onPress={() => setTipo('gasto')} />
-      </View>
-      <Text style={{ color: colors.text3, fontSize: 12 }}>
-        {tipo === 'factura' ? 'La IA lee la factura y la carga en Compras, igual que desde la web.' : 'Gasto chico: queda en Caja chica con la foto, pendiente de aprobación.'}
-      </Text>
-
-      {foto ? (
-        <TouchableOpacity onPress={() => setFoto(null)}>
-          <Image source={{ uri: foto.uri }} style={{ width: '100%', height: 260, borderRadius: radius.md }} resizeMode="contain" />
-          <Text style={{ color: colors.text3, fontSize: 12, textAlign: 'center', marginTop: 4 }}>Tocá para sacar otra</Text>
-        </TouchableOpacity>
-      ) : (
-        <View style={{ flexDirection: 'row', gap: spacing.sm }}>
-          <Opcion texto="📷 Sacar foto" onPress={() => elegir('camara')} />
-          <Opcion texto="🖼 Galería" onPress={() => elegir('galeria')} />
+    <View style={{ flex: 1, backgroundColor: colors.bgDeep }}>
+      <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }} keyboardShouldPersistTaps="handled">
+        <View accessibilityRole="radiogroup" style={{ flexDirection: 'row', backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 4, gap: 4 }}>
+          <Segmento texto="Factura de proveedor" activo={tipo === 'factura'} onPress={() => setTipo('factura')} />
+          <Segmento texto="Gasto chico" activo={tipo === 'gasto'} onPress={() => setTipo('gasto')} />
         </View>
-      )}
 
-      {tipo === 'gasto' && (
-        <>
-          <TextInput style={input} placeholder="Monto (ARS)" placeholderTextColor={colors.text3} keyboardType="numeric" value={monto} onChangeText={setMonto} />
-          <TextInput style={input} placeholder="¿En qué se gastó?" placeholderTextColor={colors.text3} value={descripcion} onChangeText={setDescripcion} />
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-            {CATEGORIAS.map(([k, l]) => <Chip key={k} texto={l} activo={categoria === k} onPress={() => setCategoria(k)} />)}
+        {foto ? (
+          <View>
+            <Image source={{ uri: foto.uri }} style={{ width: '100%', height: 200, borderRadius: radius.lg, backgroundColor: colors.bgCard }} resizeMode="cover" />
+            <TouchableOpacity onPress={() => setFoto(null)} style={{ position: 'absolute', right: 10, bottom: 10, height: 36, paddingHorizontal: 12, borderRadius: 18, backgroundColor: 'rgba(14,20,27,0.85)', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Feather name="camera" size={16} color={colors.text1} />
+              <Text style={{ color: colors.text1, fontSize: 13, fontFamily: fonts.medium }}>Sacar otra</Text>
+            </TouchableOpacity>
           </View>
-        </>
-      )}
+        ) : (
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Grande icono="camera" texto="Sacar foto" onPress={() => elegir('camara')} />
+            <Grande icono="image" texto="Galería" onPress={() => elegir('galeria')} />
+          </View>
+        )}
+        <Text style={{ color: colors.text2, fontSize: 12, fontFamily: fonts.regular }}>
+          {tipo === 'factura' ? 'La IA lee la factura y la carga en Compras, igual que desde la web.' : 'Queda en Caja chica con la foto, pendiente de aprobación.'}
+        </Text>
 
-      <Text style={{ color: colors.text2, fontWeight: '700' }}>¿A qué orden va?</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.xs }}>
-        <Chip texto={tipo === 'factura' ? 'Stock (sin OT)' : 'Sin OT'} activo={otId === null} onPress={() => setOtId(null)} />
-        {ots?.map((o) => <Chip key={o.id} texto={`${o.numero_ot} · ${o.proyectos?.clientes?.nombre ?? ''}`} activo={otId === o.id} onPress={() => setOtId(o.id)} />)}
+        {tipo === 'gasto' && (
+          <>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={etiqueta}>Monto</Text>
+                <TextInput style={[input, { fontSize: 18, fontFamily: fonts.semibold }]} placeholder="$ 0" placeholderTextColor={colors.text3} keyboardType="numeric" value={monto} onChangeText={setMonto} />
+              </View>
+              <View style={{ flex: 1.3 }}>
+                <Text style={etiqueta}>Descripción</Text>
+                <TextInput style={input} placeholder="Flete, ferretería…" placeholderTextColor={colors.text3} value={descripcion} onChangeText={setDescripcion} />
+              </View>
+            </View>
+            <View>
+              <Text style={etiqueta}>Categoría</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                {CATEGORIAS.map(([k, l]) => <Chip key={k} texto={l} activo={categoria === k} onPress={() => setCategoria(k)} />)}
+              </View>
+            </View>
+          </>
+        )}
+
+        <View>
+          <Text style={etiqueta}>¿A qué orden va?</Text>
+          <View accessibilityRole="radiogroup" style={{ backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, overflow: 'hidden' }}>
+            {ots?.map((o) => (
+              <Opcion key={o.id} activo={otId === o.id} onPress={() => setOtId(o.id)} titulo={o.proyectos?.clientes?.nombre ?? o.numero_ot} sub={o.numero_ot} />
+            ))}
+            <Opcion activo={otId === null} onPress={() => setOtId(null)} titulo={tipo === 'factura' ? 'Stock (sin orden)' : 'Sin orden (gasto general)'} ultima />
+          </View>
+        </View>
+      </ScrollView>
+
+      <View style={{ padding: spacing.lg, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.bgDeep }}>
+        <TouchableOpacity onPress={enviar} disabled={!listo} style={{ height: 52, borderRadius: radius.md, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', opacity: listo ? 1 : 0.4 }}>
+          {enviando ? <ActivityIndicator color={colors.onPrimary} /> : <Text style={{ color: colors.onPrimary, fontSize: 15, fontFamily: fonts.bold }}>{tipo === 'factura' ? 'Cargar factura' : 'Registrar gasto'}</Text>}
+        </TouchableOpacity>
       </View>
-
-      <TouchableOpacity
-        onPress={enviar}
-        disabled={!foto || enviando}
-        style={{ backgroundColor: colors.gold, borderRadius: radius.md, padding: spacing.md, alignItems: 'center', opacity: !foto || enviando ? 0.4 : 1 }}
-      >
-        {enviando ? <ActivityIndicator color={colors.bgDeep} /> : <Text style={{ color: colors.bgDeep, fontWeight: '700' }}>{tipo === 'factura' ? 'Cargar factura' : 'Registrar gasto'}</Text>}
-      </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
 }
 
-function Opcion({ texto, activo, onPress }: { texto: string; activo?: boolean; onPress: () => void }) {
+const etiqueta = { color: colors.text2, fontSize: 12, fontFamily: fonts.medium, marginBottom: 6 } as const;
+
+function Segmento({ texto, activo, onPress }: { texto: string; activo: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity onPress={onPress} style={{ flex: 1, padding: spacing.md, borderRadius: radius.md, borderWidth: 1, borderColor: activo ? colors.gold : colors.borderMid, backgroundColor: activo ? `${colors.gold}20` : colors.bgCard, alignItems: 'center' }}>
-      <Text style={{ color: activo ? colors.gold : colors.text1, fontWeight: '600' }}>{texto}</Text>
+    <TouchableOpacity accessibilityRole="radio" accessibilityState={{ checked: activo }} onPress={onPress} style={{ flex: 1, height: 40, borderRadius: 10, backgroundColor: activo ? colors.border : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+      <Text style={{ color: activo ? colors.text1 : colors.text2, fontSize: 14, fontFamily: fonts.semibold }}>{texto}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function Grande({ icono, texto, onPress }: { icono: 'camera' | 'image'; texto: string; onPress: () => void }) {
+  return (
+    <TouchableOpacity onPress={onPress} style={{ flex: 1, height: 140, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, borderStyle: 'dashed', backgroundColor: colors.bgCard, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+      <Feather name={icono} size={28} color={colors.gold} />
+      <Text style={{ color: colors.text1, fontSize: 14, fontFamily: fonts.semibold }}>{texto}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function Opcion({ titulo, sub, activo, onPress, ultima }: { titulo: string; sub?: string; activo: boolean; onPress: () => void; ultima?: boolean }) {
+  return (
+    <TouchableOpacity accessibilityRole="radio" accessibilityState={{ checked: activo }} onPress={onPress} style={{ minHeight: 52, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderBottomWidth: ultima ? 0 : 1, borderBottomColor: colors.border, backgroundColor: activo ? 'rgba(46,184,158,0.08)' : 'transparent' }}>
+      <View style={{ width: 20, height: 20, borderRadius: 10, borderWidth: activo ? 6 : 2, borderColor: activo ? colors.primary : colors.text3 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: colors.text1, fontSize: 14, fontFamily: fonts.semibold }}>{titulo}</Text>
+        {sub && <Text style={{ color: colors.text2, fontSize: 12, fontFamily: fonts.regular }}>{sub}</Text>}
+      </View>
     </TouchableOpacity>
   );
 }
 
 function Chip({ texto, activo, onPress }: { texto: string; activo: boolean; onPress: () => void }) {
   return (
-    <TouchableOpacity onPress={onPress} style={{ paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, borderWidth: 1, borderColor: activo ? colors.gold : colors.borderMid, backgroundColor: activo ? `${colors.gold}20` : 'transparent' }}>
-      <Text style={{ color: activo ? colors.gold : colors.text2, fontSize: 12 }}>{texto}</Text>
+    <TouchableOpacity onPress={onPress} style={{ minHeight: 36, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 18, borderWidth: 1, borderColor: activo ? colors.primary : colors.border, backgroundColor: activo ? 'rgba(46,184,158,0.12)' : 'transparent' }}>
+      <Text style={{ color: activo ? colors.primary : colors.text2, fontSize: 13, fontFamily: fonts.medium }}>{texto}</Text>
     </TouchableOpacity>
   );
 }

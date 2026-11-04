@@ -6,10 +6,17 @@ import { db } from '@/lib/supabase';
 import { colors, spacing, radius } from '@/lib/theme';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
+import { Feather } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
   const router = useRouter();
   const empleado = useAppStore((st) => st.empleado);
+  const insets = useSafeAreaInsets();
+  const { data: enCola } = useQuery({
+    queryKey: ['ot-en-cola'],
+    queryFn: () => supabase.from('ordenes_trabajo').select('id', { count: 'exact', head: true }).eq('estado', 'pendiente').eq('historica', false).then(r => r.count ?? 0),
+  });
 
   const { data: otActivas, refetch, isRefetching } = useQuery({
     queryKey: ['ot-activas'],
@@ -24,7 +31,7 @@ export default function HomeScreen() {
   return (
     <ScrollView
       style={styles.container}
-      contentContainerStyle={{ padding: spacing.lg }}
+      contentContainerStyle={{ padding: spacing.lg, paddingTop: insets.top + spacing.lg }}
       refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.gold} />}
     >
       {/* HEADER */}
@@ -33,27 +40,26 @@ export default function HomeScreen() {
           <Text style={styles.greeting}>Hola, {empleado?.nombre?.split(' ')[0]}</Text>
           <Text style={styles.subtitle}>{new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })}</Text>
         </View>
-        <TouchableOpacity onPress={() => supabase.auth.signOut()}>
-          <Text style={{ color: colors.text3, fontSize: 13 }}>Salir</Text>
-        </TouchableOpacity>
+        <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgCard, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: colors.gold, fontSize: 15, fontFamily: 'InstrumentSans_600SemiBold' }}>{(empleado?.nombre ?? '').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}</Text>
+        </View>
       </View>
 
       {/* KPIs */}
       <View style={styles.kpiGrid}>
-        <KpiCard label="OT activas" value={String(otActivas?.length ?? 0)} color={colors.green} />
-        <KpiCard label="Cotizaciones" value={String(sesiones?.length ?? 0)} color={colors.honey} />
-        <KpiCard label="Pendientes" value="2" color={colors.copper} />
-        <KpiCard label="Margen" value="38%" color={colors.gold} />
+        <KpiCard label="En el taller" value={String(otActivas?.length ?? 0)} color={colors.primary} />
+        <KpiCard label="En cola" value={String(enCola ?? 0)} color={colors.text1} />
+        <KpiCard label="Cotizaciones" value={String(sesiones?.length ?? 0)} color={colors.text1} />
       </View>
 
       {/* ACCIÓN RÁPIDA */}
       <TouchableOpacity style={styles.cotizarBtn} onPress={() => router.push('/(tabs)/cotizador')}>
-        <Text style={styles.cotizarIcon}>◇</Text>
+        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gold, alignItems: 'center', justifyContent: 'center' }}><Feather name="camera" size={20} color={colors.onGold} /></View>
         <View>
           <Text style={styles.cotizarTitle}>Nueva cotización con IA</Text>
-          <Text style={styles.cotizarSub}>Subí un plano o describí el trabajo</Text>
+          <Text style={styles.cotizarSub}>Sacá una foto del plano o describí el trabajo</Text>
         </View>
-        <Text style={styles.cotizarArrow}>→</Text>
+        <Feather name="chevron-right" size={22} color={colors.gold} style={{ marginLeft: 'auto' }} />
       </TouchableOpacity>
 
       {/* OTs EN PRODUCCIÓN */}
@@ -121,31 +127,29 @@ function EstadoPill({ estado }: { estado: string }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bgDeep },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
-  greeting: { fontSize: 22, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
-  subtitle: { fontSize: 12, color: colors.text3, marginTop: 3 },
+  greeting: { fontSize: 28, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1 },
+  subtitle: { fontSize: 13, color: colors.text2, marginTop: 3, textTransform: 'capitalize', fontFamily: 'InstrumentSans_400Regular' },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
-  kpiCard: { flex: 1, minWidth: '45%', backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, borderWidth: 1 },
-  kpiValue: { fontSize: 24, fontFamily: 'Syne_600SemiBold', marginBottom: 4 },
-  kpiLabel: { fontSize: 10, color: colors.text3, textTransform: 'uppercase', letterSpacing: 1 },
+  kpiCard: { flex: 1, backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, borderWidth: 1 },
+  kpiValue: { fontSize: 24, fontFamily: 'InstrumentSans_600SemiBold', marginBottom: 4 },
+  kpiLabel: { fontSize: 12, color: colors.text2, fontFamily: 'InstrumentSans_400Regular' },
   cotizarBtn: { backgroundColor: colors.bgCard, borderRadius: radius.lg, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md, borderWidth: 1, borderColor: colors.borderGold, marginBottom: spacing.xl },
-  cotizarIcon: { fontSize: 24, color: colors.gold },
-  cotizarTitle: { fontSize: 15, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
+  cotizarTitle: { fontSize: 15, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1 },
   cotizarSub: { fontSize: 12, color: colors.text3, marginTop: 2 },
-  cotizarArrow: { fontSize: 20, color: colors.gold, marginLeft: 'auto' },
   section: { marginBottom: spacing.xl },
-  sectionTitle: { fontSize: 14, fontFamily: 'Syne_600SemiBold', color: colors.text2, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: spacing.sm },
+  sectionTitle: { fontSize: 14, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text2, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: spacing.sm },
   otCard: { backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border },
   otHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  otNum: { fontSize: 10, fontFamily: 'DMSans_400Regular', color: colors.text3 },
-  otPct: { fontSize: 12, color: colors.green, fontFamily: 'Syne_600SemiBold' },
-  otName: { fontSize: 14, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
+  otNum: { fontSize: 10, fontFamily: 'InstrumentSans_400Regular', color: colors.text3 },
+  otPct: { fontSize: 12, color: colors.green, fontFamily: 'InstrumentSans_600SemiBold' },
+  otName: { fontSize: 14, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1 },
   otClient: { fontSize: 12, color: colors.text3, marginTop: 2, marginBottom: 8 },
   progressBar: { height: 3, backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: colors.green, borderRadius: 2 },
   sesionCard: { backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.sm, borderWidth: 1, borderColor: colors.border, flexDirection: 'row', alignItems: 'center' },
-  sesionTipo: { fontSize: 14, fontFamily: 'Syne_600SemiBold', color: colors.text1, textTransform: 'capitalize' },
+  sesionTipo: { fontSize: 14, fontFamily: 'InstrumentSans_600SemiBold', color: colors.text1, textTransform: 'capitalize' },
   sesionCliente: { fontSize: 12, color: colors.text3, marginTop: 2 },
-  sesionFecha: { fontSize: 10, color: colors.text3, marginTop: 4, fontFamily: 'DMSans_400Regular' },
+  sesionFecha: { fontSize: 10, color: colors.text3, marginTop: 4, fontFamily: 'InstrumentSans_400Regular' },
   pill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  pillText: { fontSize: 10, fontFamily: 'DMSans_400Regular' },
+  pillText: { fontSize: 10, fontFamily: 'InstrumentSans_400Regular' },
 });

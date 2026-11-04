@@ -1,8 +1,8 @@
-﻿{
+{
   "expo": {
     "name": "Zebrano",
     "slug": "zebrano-app",
-    "version": "1.7.0",
+    "version": "1.8.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "zebrano",
@@ -15,7 +15,7 @@
         "backgroundColor": "#0d0f0e"
       },
       "package": "com.martintomasella.zebrano",
-      "versionCode": 7,
+      "versionCode": 8,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -27,10 +27,13 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "./plugins/withKotlinVersion"
+      "./plugins/withKotlinVersion",
+      "expo-font"
     ],
     "extra": {
-      "eas": { "projectId": "699fc2d9-0640-409b-a3f3-9a13a7f29dfb" },
+      "eas": {
+        "projectId": "699fc2d9-0640-409b-a3f3-9a13a7f29dfb"
+      },
       "supabaseUrl": "https://xsciujuvkbubnhhnpcix.supabase.co",
       "supabaseAnonKey": "sb_publishable_gI_zCp__hlMim3bIhXX7jg_QwY5MwzZ",
       "n8nWebhookBase": "https://n8n-n8n.z8ixjp.easypanel.host/webhook"

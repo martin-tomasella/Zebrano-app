@@ -1,5 +1,12 @@
 # Changelog
 
+## v8 — 04/11/2026
+- Rediseño «Veta», el mismo lenguaje visual que la web: verde laca y dorado veta sobre fondo oscuro, tipografía Instrument Sans, íconos Feather (sin emojis), botones de 44 px como mínimo.
+- Cinco pestañas: Inicio, Producción, Cotizar (botón dorado de cámara al centro), Tickets y Más (Proyectos, Clientes, cerrar sesión).
+- Producción: la cola se reordena manteniendo apretado y arrastrando; la OT en el taller muestra el tiempo corrido en grande y avisa si faltan horas estimadas.
+- Cotizar: barra de etapas (Plano → Render → Presupuesto → A la cola).
+- Ingreso y Tickets rediseñados. Inicio sin números de ejemplo (antes mostraba "Pendientes 2" y "Margen 38%" fijos).
+
 ## v7 — 04/11/2026
 - Login de empleados (Supabase Auth). Solo entra quien tiene una fila activa en `empleados`; la sesión queda guardada.
 - Sin API keys en la app: las edge functions se llaman con el JWT del empleado (se sacó la anon key hardcodeada y `src/lib/api.ts`).
