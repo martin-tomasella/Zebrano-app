@@ -2,7 +2,13 @@
 import { create } from 'zustand';
 import type { CotizacionSesion, Proyecto, Cliente } from '@/types';
 
+export interface EmpleadoSesion { id: string; nombre: string; rol: string }
+
 interface AppStore {
+  // Empleado logueado (null = sin sesión)
+  empleado: EmpleadoSesion | null;
+  setEmpleado: (e: EmpleadoSesion | null) => void;
+
   // Sesión activa del cotizador
   sesionActiva: CotizacionSesion | null;
   setSesionActiva: (s: CotizacionSesion | null) => void;
@@ -26,6 +32,9 @@ interface AppStore {
 }
 
 export const useAppStore = create<AppStore>((set) => ({
+  empleado:    null,
+  setEmpleado: (e) => set({ empleado: e }),
+
   sesionActiva:    null,
   setSesionActiva: (s) => set({ sesionActiva: s }),
 

@@ -2,15 +2,15 @@ import { useState, useRef, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
   Image, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
-  Modal, Dimensions,
+  Modal, Dimensions, Linking,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
+import { llamarFuncion } from '@/lib/supabase';
+import { comprimir, tomarFoto, type Foto } from '@/lib/imagen';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-const SUPA_URL = 'https://xsciujuvkbubnhhnpcix.supabase.co';
-const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzY2l1anV2a2J1Ym5oaG5wY2l4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MjYyMzMsImV4cCI6MjA5MjIwMjIzM30.tFh6_C6eCIa1aS6efwaC_Ht5iqZNnAdEj0jPKuLfuKA';
 const C = {
   bg:'#0d0f0e', card:'#1a2020', raised:'#1f2826',
   gold:'#c9a84c', honey:'#e0b86a', amber:'#f0c97a',
@@ -21,37 +21,18 @@ const C = {
 };
 
 // ─── HELPERS ──────────────────────────────────────────────────────
-async function imageToBase64(uri: string): Promise<string> {
-  const r = await fetch(uri);
-  const blob = await r.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
-}
-
 async function transcribirAudio(uri: string): Promise<string | null> {
   try {
     const fd = new FormData();
     fd.append('file', { uri, type: 'audio/m4a', name: 'audio.m4a' } as any);
-    const r = await fetch(`${SUPA_URL}/functions/v1/zebrano-whisper`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${SUPA_KEY}` },
-      body: fd,
-    });
+    const r = await llamarFuncion('zebrano-whisper', fd, false);
     const d = await r.json();
     return d.text ?? null;
   } catch (e) { console.error('Whisper:', e); return null; }
 }
 
 async function chatCotizador(params: Record<string, unknown>) {
-  const r = await fetch(`${SUPA_URL}/functions/v1/zebrano-cotizador`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SUPA_KEY}` },
-    body: JSON.stringify(params),
-  });
+  const r = await llamarFuncion('zebrano-cotizador', JSON.stringify(params));
   return r.json();
 }
 
@@ -178,7 +159,7 @@ export default function CotizadorScreen() {
   const [sesionId, setSesionId]       = useState<string | null>(null);
   const [msgs, setMsgs]               = useState<Msg[]>([]);
   const [input, setInput]             = useState('');
-  const [imgs, setImgs]               = useState<string[]>([]);
+  const [imgs, setImgs]               = useState<Foto[]>([]);
   const [loading, setLoading]         = useState(false);
   const [grabando, setGrabando]       = useState(false);
   const [transcribiendo, setTrans]    = useState(false);
@@ -189,6 +170,8 @@ export default function CotizadorScreen() {
   const [aprobandoSVG, setAprobSVG]   = useState(false);
   const [modalSvg, setModalSvg]         = useState<string | null>(null);
   const [otCreada, setOtCreada]       = useState<string | null>(null);
+  const [pdfUrl, setPdfUrl]           = useState<string | null>(null);
+  const [hojaUrl, setHojaUrl]         = useState<string | null>(null);
 
   const scroll = () => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150);
 
@@ -222,11 +205,10 @@ export default function CotizadorScreen() {
     setLoading(true);
     const localImgs = [...imgs]; const msgTxt = input;
     setInput(''); setImgs([]);
-    setMsgs(p => [...p, { id: Date.now().toString(), rol: 'user', texto: msgTxt || '(imágenes)', imagenes: localImgs, timestamp: new Date().toISOString() }]);
+    setMsgs(p => [...p, { id: Date.now().toString(), rol: 'user', texto: msgTxt || '(imágenes)', imagenes: localImgs.map(f => f.uri), timestamp: new Date().toISOString() }]);
     scroll();
 
-    const b64s: string[] = [];
-    for (const uri of localImgs) { try { b64s.push(await imageToBase64(uri)); } catch { } }
+    const b64s = localImgs.map(f => f.base64);
 
     try {
       const resp = await chatCotizador({ sesion_id: sesionId ?? undefined, mensaje: msgTxt, imagenes_base64: b64s, origen: 'app' });
@@ -234,6 +216,7 @@ export default function CotizadorScreen() {
         if (!sesionId) setSesionId(resp.sesion_id);
         if (resp.render_url) setRenderUrl(resp.render_url);
         if (resp.resumen?.listo_para_aprobar) setResumen(resp.resumen);
+        if (resp.resumen?.documento_url) setPdfUrl(resp.resumen.documento_url);
         setMsgs(p => [...p, {
           id: (Date.now() + 1).toString(), rol: 'agent',
           texto: resp.respuesta,
@@ -281,7 +264,7 @@ export default function CotizadorScreen() {
           try {
             const resp = await chatCotizador({ sesion_id: sesionId, aprobar_cotizacion: true });
             if (resp.ok && resp.ot_creada) {
-              setOtCreada(resp.numero_ot); setResumen(null);
+              setOtCreada(resp.numero_ot); setResumen(null); setHojaUrl(resp.hoja_taller_url ?? null);
               setMsgs(p => [...p, { id: Date.now().toString(), rol: 'agent', texto: resp.respuesta, timestamp: new Date().toISOString() }]);
               scroll();
             }
@@ -294,14 +277,12 @@ export default function CotizadorScreen() {
 
   // ── IMÁGENES ──────────────────────────────────────────────────
   const pickImg = async () => {
-    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85, allowsMultipleSelection: true });
-    if (!r.canceled) setImgs(p => [...p, ...r.assets.map(a => a.uri)]);
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: true, selectionLimit: 3 });
+    if (!r.canceled) { const fs = await Promise.all(r.assets.map(comprimir)); setImgs(p => [...p, ...fs]); }
   };
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') return;
-    const r = await ImagePicker.launchCameraAsync({ quality: 0.85 });
-    if (!r.canceled) setImgs(p => [...p, r.assets[0].uri]);
+    const f = await tomarFoto('camara');
+    if (f) setImgs(p => [...p, f]);
   };
 
   const canSend = !loading && (input.trim().length > 0 || imgs.length > 0);
@@ -317,7 +298,7 @@ export default function CotizadorScreen() {
           <Text style={s.agentLabel}>Nogal · Cotizador</Text>
           <View style={{ flex: 1 }} />
           {sesionId && (
-            <TouchableOpacity style={s.headerBtn} onPress={() => { setSesionId(null); setMsgs([]); setResumen(null); setRenderUrl(null); setOtCreada(null); }}>
+            <TouchableOpacity style={s.headerBtn} onPress={() => { setSesionId(null); setMsgs([]); setResumen(null); setRenderUrl(null); setOtCreada(null); setPdfUrl(null); setHojaUrl(null); }}>
               <Text style={{ color: C.gold, fontSize: 11 }}>+ Nueva</Text>
             </TouchableOpacity>
           )}
@@ -404,6 +385,11 @@ export default function CotizadorScreen() {
                 <Text style={{ color: C.t1, fontSize: 15, fontWeight: '600' }}>Precio al cliente</Text>
                 <Text style={{ color: C.amber, fontSize: 18, fontWeight: '700' }}>${resumen.precioSugerido?.toLocaleString('es-AR')}</Text>
               </View>
+              {pdfUrl && (
+                <TouchableOpacity style={{ borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 12, borderWidth: 1, borderColor: C.borderGold }} onPress={() => Linking.openURL(pdfUrl)}>
+                  <Text style={{ color: C.gold, fontSize: 13, fontWeight: '600' }}>📄 Ver presupuesto (PDF)</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity style={{ backgroundColor: C.gold, borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 12 }} onPress={aprobar} disabled={aprobando}>
                 {aprobando ? <ActivityIndicator color={C.bg} /> : <Text style={{ color: C.bg, fontSize: 14, fontWeight: '700' }}>Aprobar y generar OT</Text>}
               </TouchableOpacity>
@@ -418,7 +404,12 @@ export default function CotizadorScreen() {
             <View style={{ backgroundColor: '#1a2e1a', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#6bbf8440', marginTop: 8, alignItems: 'center' }}>
               <Text style={{ fontSize: 28 }}>✅</Text>
               <Text style={{ color: C.green, fontSize: 15, fontWeight: '700', marginTop: 6 }}>{otCreada} creada</Text>
-              <Text style={{ color: C.t3, fontSize: 12, marginTop: 4 }}>La orden pasó a producción</Text>
+              <Text style={{ color: C.t3, fontSize: 12, marginTop: 4 }}>Quedó en la cola de fabricación</Text>
+              {hojaUrl && (
+                <TouchableOpacity onPress={() => Linking.openURL(hojaUrl)} style={{ marginTop: 8 }}>
+                  <Text style={{ color: C.gold, fontSize: 13 }}>📄 Hoja de taller (PDF)</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -427,9 +418,9 @@ export default function CotizadorScreen() {
         {/* PREVIEW IMÁGENES */}
         {imgs.length > 0 && (
           <ScrollView horizontal style={{ maxHeight: 90, backgroundColor: '#111714', borderTopWidth: 1, borderTopColor: C.border }} contentContainerStyle={{ gap: 8, padding: 8 }}>
-            {imgs.map((uri, i) => (
+            {imgs.map((f, i) => (
               <View key={i} style={{ position: 'relative' }}>
-                <Image source={{ uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+                <Image source={{ uri: f.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
                 <TouchableOpacity style={{ position: 'absolute', top: 2, right: 2, backgroundColor: C.red, borderRadius: 8, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }} onPress={() => setImgs(p => p.filter((_, idx) => idx !== i))}>
                   <Text style={{ color: '#fff', fontSize: 10 }}>X</Text>
                 </TouchableOpacity>

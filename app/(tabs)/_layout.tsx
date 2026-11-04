@@ -37,6 +37,10 @@ export default function TabLayout() {
         options={{ title: 'Producción', tabBarIcon: ({ color }) => <TabIcon label="⬡" color={color} /> }}
       />
       <Tabs.Screen
+        name="tickets"
+        options={{ title: 'Tickets', tabBarIcon: ({ color }) => <TabIcon label="▣" color={color} /> }}
+      />
+      <Tabs.Screen
         name="clientes"
         options={{ title: 'Clientes', tabBarIcon: ({ color }) => <TabIcon label="○" color={color} /> }}
       />

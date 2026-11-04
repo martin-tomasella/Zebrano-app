@@ -1,5 +1,6 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
+import { AppState } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
@@ -21,6 +22,29 @@ export const supabase = createClient(supabaseUrl, supabaseAnon, {
     detectSessionInUrl: false,
   },
 });
+
+// Refrescar el token solo con la app en primer plano (recomendado por Supabase para RN)
+AppState.addEventListener('change', (st) => {
+  if (st === 'active') supabase.auth.startAutoRefresh(); else supabase.auth.stopAutoRefresh();
+});
+
+// Empleado activo del usuario logueado, o null (RLS: cada uno ve su propia fila)
+export async function empleadoActual() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data } = await supabase.from('empleados').select('id, nombre, rol, activo').eq('auth_user_id', user.id).maybeSingle();
+  return data && data.activo !== false ? { id: data.id as string, nombre: data.nombre as string, rol: data.rol as string } : null;
+}
+
+// Llama a una edge function con el JWT del empleado (nunca con una API key).
+export async function llamarFuncion(nombre: string, body: BodyInit, json = true): Promise<Response> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return fetch(`${supabaseUrl}/functions/v1/${nombre}`, {
+    method: 'POST',
+    headers: { apikey: supabaseAnon, Authorization: `Bearer ${session?.access_token ?? ''}`, ...(json ? { 'Content-Type': 'application/json' } : {}) },
+    body,
+  });
+}
 
 // ── STORAGE: subir archivo a Supabase Storage ─────────────
 export async function uploadFile(
@@ -73,7 +97,7 @@ export const db = {
 
   // OT
   ot: {
-    activas: () => supabase.from('v_ot_activas').select('*'),
+    activas: () => supabase.from('ordenes_trabajo').select('id, numero_ot, avance_pct, proyectos(nombre, tipo_trabajo, clientes(nombre))').eq('estado', 'en_proceso').order('iniciada_at'),
     get: (id: string) => supabase.from('ordenes_trabajo').select('*, ot_piezas(*), ot_empleados(*, empleados(*))').eq('id', id).single(),
     updateAvance: (id: string, pct: number) => supabase.from('ordenes_trabajo').update({ avance_pct: pct }).eq('id', id),
   },

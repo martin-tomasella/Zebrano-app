@@ -4,10 +4,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { db } from '@/lib/supabase';
 import { colors, spacing, radius } from '@/lib/theme';
-import { callLeader } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import { useAppStore } from '@/store';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const empleado = useAppStore((st) => st.empleado);
 
   const { data: otActivas, refetch, isRefetching } = useQuery({
     queryKey: ['ot-activas'],
@@ -28,13 +30,12 @@ export default function HomeScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.greeting}>Buenos días, Martín</Text>
+          <Text style={styles.greeting}>Hola, {empleado?.nombre?.split(' ')[0]}</Text>
           <Text style={styles.subtitle}>{new Date().toLocaleDateString('es-AR', { weekday:'long', day:'numeric', month:'long' })}</Text>
         </View>
-        <View style={styles.orbWrap}>
-          <View style={styles.orb} />
-          <Text style={styles.orbText}>✦</Text>
-        </View>
+        <TouchableOpacity onPress={() => supabase.auth.signOut()}>
+          <Text style={{ color: colors.text3, fontSize: 13 }}>Salir</Text>
+        </TouchableOpacity>
       </View>
 
       {/* KPIs */}
@@ -60,13 +61,13 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>En producción</Text>
           {otActivas.slice(0, 3).map((ot: Record<string, unknown>) => (
-            <TouchableOpacity key={ot.numero_ot as string} style={styles.otCard} onPress={() => router.push(`/ot/${ot.numero_ot}`)}>
+            <TouchableOpacity key={ot.numero_ot as string} style={styles.otCard} onPress={() => router.push('/(tabs)/produccion')}>
               <View style={styles.otHeader}>
                 <Text style={styles.otNum}>{ot.numero_ot as string}</Text>
                 <Text style={styles.otPct}>{ot.avance_pct as number}%</Text>
               </View>
-              <Text style={styles.otName}>{ot.modulo_nombre as string}</Text>
-              <Text style={styles.otClient}>{ot.cliente_nombre as string}</Text>
+              <Text style={styles.otName}>{(ot.proyectos as { tipo_trabajo?: string } | null)?.tipo_trabajo ?? '—'}</Text>
+              <Text style={styles.otClient}>{(ot.proyectos as { clientes?: { nombre?: string } } | null)?.clientes?.nombre ?? '—'}</Text>
               <View style={styles.progressBar}>
                 <View style={[styles.progressFill, { width: `${ot.avance_pct as number}%` }]} />
               </View>
@@ -122,9 +123,6 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xl },
   greeting: { fontSize: 22, fontFamily: 'Syne_600SemiBold', color: colors.text1 },
   subtitle: { fontSize: 12, color: colors.text3, marginTop: 3 },
-  orbWrap: { width: 44, height: 44, position: 'relative', alignItems: 'center', justifyContent: 'center' },
-  orb: { position: 'absolute', width: 44, height: 44, borderRadius: 22, backgroundColor: colors.gold, opacity: 0.15 },
-  orbText: { fontSize: 20, color: colors.gold },
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
   kpiCard: { flex: 1, minWidth: '45%', backgroundColor: colors.bgCard, borderRadius: radius.md, padding: spacing.md, borderWidth: 1 },
   kpiValue: { fontSize: 24, fontFamily: 'Syne_600SemiBold', marginBottom: 4 },

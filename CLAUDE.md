@@ -23,12 +23,17 @@ React Native + Expo Router v4 · TypeScript · Supabase · TanStack Query · Zus
 - Sin API key, sin costo
 
 ## Flujo cotizador
-1. Usuario sube imagen/texto → app/(tabs)/cotizador.tsx
-2. POST /webhook/zebrano-cotizador con {sesion_id, mensaje, imagenes_base64[]}
-3. n8n → Edge Function zebrano-cotizador → Claude API
-4. Respuesta con despiece + hojas + costos
-5. App muestra render (Pollinations) + resumen
-6. Usuario aprueba → se crea OT en Supabase
+1. Foto del plano (comprimida a 1600 px JPEG, `src/lib/imagen.ts`) o texto → app/(tabs)/cotizador.tsx
+2. POST directo a la edge function `zebrano-cotizador` con el JWT del empleado (`llamarFuncion` en src/lib/supabase.ts) → canal interno
+3. Plano técnico (SVG) → aprobar → render → presupuesto con link al PDF → aprobar → OT en la cola de fabricación
+4. La sesión es la misma `cotizacion_sesiones` que ve la web
+
+## Login y permisos
+- Supabase Auth email/contraseña; solo entra quien tiene fila activa en `empleados`. Nada de API keys en la app: solo la publishable key (app.json) y el JWT.
+- Producción: cola con `ot_iniciar`, `ot_reordenar`, `ot_avance`, `ot_entregar` (solo admin y gestión, validado en la base).
+
+## Build del APK
+- Subir `versionCode` en app.json, commitear y pushear un tag `vN` → GitHub Actions (`.github/workflows/apk.yml`) compila con Gradle y publica `zebrano-vN.apk` en Releases. No usa EAS.
 
 ## Estructura de carpetas de proyectos en Storage
 zebrano-proyectos/
