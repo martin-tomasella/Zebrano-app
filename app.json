@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zebrano",
     "slug": "zebrano-app",
-    "version": "1.8.0",
+    "version": "1.9.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "zebrano",
@@ -12,10 +12,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#0d0f0e"
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#1E150E"
       },
       "package": "com.martintomasella.zebrano",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -37,6 +38,12 @@
       "supabaseUrl": "https://xsciujuvkbubnhhnpcix.supabase.co",
       "supabaseAnonKey": "sb_publishable_gI_zCp__hlMim3bIhXX7jg_QwY5MwzZ",
       "n8nWebhookBase": "https://n8n-n8n.z8ixjp.easypanel.host/webhook"
+    },
+    "icon": "./src/assets/icon.png",
+    "splash": {
+      "image": "./src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1E150E"
     }
   }
 }

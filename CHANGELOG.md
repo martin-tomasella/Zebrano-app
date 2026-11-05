@@ -1,5 +1,9 @@
 # Changelog
 
+## v9 — 04/11/2026
+- Menú inferior «liquid»: la burbuja verde se desliza con un resorte hasta la pestaña elegida, el ícono sube adentro de la burbuja y aparece la etiqueta.
+- Ícono de la app y pantalla de inicio con el logo de Zebrano (mobiliario + arquitectura).
+
 ## v8 — 04/11/2026
 - Rediseño «Veta», el mismo lenguaje visual que la web: verde laca y dorado veta sobre fondo oscuro, tipografía Instrument Sans, íconos Feather (sin emojis), botones de 44 px como mínimo.
 - Cinco pestañas: Inicio, Producción, Cotizar (botón dorado de cámara al centro), Tickets y Más (Proyectos, Clientes, cerrar sesión).
