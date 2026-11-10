@@ -1,200 +1,203 @@
-// app/(tabs)/produccion.tsx — cola de fabricación, OT en el taller y entregadas
-// Mismas funciones que la web: ot_iniciar, ot_reordenar, ot_avance, ot_entregar (solo admin y gestión).
-import { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, RefreshControl, Alert } from 'react-native';
+// app/(tabs)/produccion.tsx — cola de fábrica con planificación (como PlanCola.jsx de la web):
+// horas-persona por etapa ÷ personas = duración; una OT por vez, jornada de 7 h, lunes a viernes.
+// Iniciar, reordenar, avance y entrega: ot_iniciar / ot_reordenar / ot_avance / ot_entregar (admin y gestión).
+import { useEffect, useMemo, useState } from 'react';
+import { View, Pressable, RefreshControl, Alert } from 'react-native';
 import { useQuery } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import DraggableFlatList, { type RenderItemParams } from 'react-native-draggable-flatlist';
-import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
-import { colors, spacing, radius, fonts } from '@/lib/theme';
+import { puede } from '@/lib/permisos';
+import { planificar, ordenCola, ETAPA, type Etapa, type OtPlan } from '@/lib/plan';
+import { useTema, spacing } from '@/lib/theme';
+import { Vidrio, T, Boton, Badge, Kpi, Contador, Aviso, Icono, fecha } from '@/components/ui';
 
-interface OT {
-  id: string;
-  numero_ot: string;
-  estado: string;
-  avance_pct: number | null;
-  iniciada_at: string | null;
-  created_at: string;
-  fecha_entrega_real: string | null;
-  tipo_trabajo: string | null;
-  horas_estimadas: number | null;
-  horas_fabricacion_estimadas: number | null;
-  proyectos: { tipo_trabajo: string | null; clientes: { nombre: string } | null } | null;
+interface OT extends OtPlan {
+  numero_ot: string; fecha_entrega_real?: string | null; tipo_trabajo?: string | null;
+  horas_estimadas?: number | null; horas_fabricacion_estimadas?: number | null;
+  proyectos: { nombre?: string | null; tipo_trabajo?: string | null; clientes: { nombre: string } | null } | null;
 }
 
 async function cargar() {
-  const sel = 'id, numero_ot, estado, avance_pct, iniciada_at, created_at, fecha_entrega_real, tipo_trabajo, horas_estimadas, horas_fabricacion_estimadas, proyectos(tipo_trabajo, clientes(nombre))';
-  const [cola, enProceso, entregadas] = await Promise.all([
-    supabase.from('ordenes_trabajo').select(sel).eq('estado', 'pendiente').eq('historica', false)
-      .order('prioridad', { ascending: true, nullsFirst: false }).order('created_at'),
-    supabase.from('ordenes_trabajo').select(sel).eq('estado', 'en_proceso').order('iniciada_at'),
-    supabase.from('ordenes_trabajo').select(sel).eq('estado', 'terminada').eq('historica', false)
-      .order('fecha_entrega_real', { ascending: false, nullsFirst: false }).limit(10),
+  const sel = 'id,numero_ot,estado,prioridad,avance_pct,iniciada_at,created_at,fecha_entrega_estimada,fecha_entrega_real,tipo_trabajo,horas_estimadas,horas_fabricacion_estimadas,proyectos(nombre,tipo_trabajo,clientes(nombre))';
+  const [a, b, c, d] = await Promise.all([
+    supabase.from('ordenes_trabajo').select(sel).in('estado', ['pendiente', 'en_proceso']).or('historica.is.null,historica.eq.false'),
+    supabase.from('ot_etapas').select('*'),
+    supabase.from('horas_trabajo_ot').select('ot_id,etapa,horas'),
+    supabase.from('ordenes_trabajo').select(sel).eq('estado', 'terminada').or('historica.is.null,historica.eq.false').order('fecha_entrega_real', { ascending: false, nullsFirst: false }).limit(8),
   ]);
-  const err = cola.error ?? enProceso.error ?? entregadas.error;
+  const err = a.error ?? b.error ?? d.error;
   if (err) throw err;
-  const as = (d: unknown) => (d ?? []) as OT[];
-  return { cola: as(cola.data), enProceso: as(enProceso.data), entregadas: as(entregadas.data) };
+  const reales: Record<string, number> = {};
+  for (const h of c.data ?? []) { const k = `${h.ot_id}|${h.etapa}`; reales[k] = (reales[k] ?? 0) + Number(h.horas ?? 0); }
+  return { ots: ((a.data ?? []) as unknown as OT[]).sort(ordenCola), etapas: (b.data ?? []) as Etapa[], reales, entregadas: (d.data ?? []) as unknown as OT[] };
 }
 
-const estimadas = (o: OT) => Number(o.horas_fabricacion_estimadas ?? o.horas_estimadas) || null;
-const cliente = (o: OT) => o.proyectos?.clientes?.nombre ?? 'Sin nombre';
+const cliente = (o: OT) => o.proyectos?.clientes?.nombre ?? 'Sin cliente';
 const tipo = (o: OT) => { const t = o.proyectos?.tipo_trabajo ?? o.tipo_trabajo; return t ? t[0].toUpperCase() + t.slice(1) : '—'; };
-const fecha = (d: string) => new Date(d.length === 10 ? `${d}T12:00:00` : d).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
-function transcurrido(desde: string | null) {
-  if (!desde) return '—';
-  const h = Math.max(0, Math.floor((Date.now() - new Date(desde).getTime()) / 3600000));
-  return `${Math.floor(h / 24)} d ${h % 24} h`;
-}
+const corrido = (d?: string | null) => { if (!d) return '—'; const h = Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 3600000)); return `${Math.floor(h / 24)} d ${h % 24} h`; };
+const fCorta = (d?: string | null) => d ? new Date(d + 'T12:00').toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }) : '—';
 
-export default function ProduccionScreen() {
+export default function Produccion() {
+  const { c } = useTema();
   const insets = useSafeAreaInsets();
-  const empleado = useAppStore((s) => s.empleado);
-  const puede = empleado?.rol === 'admin' || empleado?.rol === 'gestion';
+  const router = useRouter();
+  const rol = useAppStore((s) => s.empleado?.rol);
+  const gestiona = puede(rol, 'gestionar_cola');
   const { data, refetch, isRefetching, error } = useQuery({ queryKey: ['produccion'], queryFn: cargar });
+  const [etapas, setEtapas] = useState<Etapa[]>([]);
   const [cola, setCola] = useState<OT[]>([]);
-  useEffect(() => { setCola(data?.cola ?? []); }, [data]);
+  const [abiertas, setAbiertas] = useState<Record<string, boolean>>({});
+  useEffect(() => { if (data) { setEtapas(data.etapas); setCola(data.ots.filter((o) => o.estado === 'pendiente')); } }, [data]);
+
+  const enProceso = useMemo(() => (data?.ots ?? []).filter((o) => o.estado === 'en_proceso'), [data]);
+  const plan = useMemo(() => planificar([...enProceso, ...cola], etapas), [enProceso, cola, etapas]);
+  const planDe = (id: string) => plan.find((p) => p.ot.id === id);
+
+  // Guarda la fecha de fin recalculada en las OT que tienen etapas (las que no tienen conservan la suya).
+  useEffect(() => {
+    if (!data) return;
+    plan.filter((p) => p.dur != null && p.fin !== p.ot.fecha_entrega_estimada)
+      .forEach((p) => supabase.from('ordenes_trabajo').update({ fecha_entrega_estimada: p.fin }).eq('id', p.ot.id).then(({ error: e }) => { if (!e) p.ot.fecha_entrega_estimada = p.fin; }));
+  }, [plan, data]);
 
   async function rpc(fn: string, args: Record<string, unknown>) {
     const { error: e } = await supabase.rpc(fn, args);
     if (e) Alert.alert('No se pudo', e.message);
     refetch();
   }
-  const confirmar = (titulo: string, fn: () => void) =>
-    Alert.alert(titulo, undefined, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sí', onPress: fn }]);
+  const confirmar = (titulo: string, fn: () => void) => Alert.alert(titulo, undefined, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sí', onPress: fn }]);
+  async function cambiarPersonas(e: Etapa, personas: number) {
+    setEtapas((es) => es.map((x) => (x.id === e.id ? { ...x, personas } : x)));
+    const { error: er } = await supabase.from('ot_etapas').update({ personas }).eq('id', e.id);
+    if (er) { Alert.alert('No se pudo guardar', er.message); refetch(); }
+  }
 
-  const enProceso = data?.enProceso ?? [];
-  const horas = [...cola, ...enProceso].reduce((s, o) => s + (estimadas(o) ?? 0), 0);
-  const iniciales = (empleado?.nombre ?? '').split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
-  const hoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const horasCola = plan.reduce((a, p) => a + (p.dur ?? 0), 0);
+
+  const etapasDe = (o: OT) => {
+    const p = planDe(o.id);
+    if (!abiertas[o.id]) return null;
+    if (!p?.etapas.length) return <T v="chico">Sin horas por etapa (OT cargada a mano): se toma su fecha de entrega.</T>;
+    return (
+      <View style={{ gap: 8 }}>
+        {p.etapas.map((e) => {
+          const real = data?.reales[`${o.id}|${e.etapa}`] ?? 0;
+          return (
+            <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: c.linea }}>
+              <View style={{ flex: 1 }}>
+                <T style={{ fontSize: 14 }}>{ETAPA[e.etapa] ?? e.etapa}</T>
+                <T v="chico">{Number(e.horas_persona).toFixed(1)} h-p → {(Number(e.horas_persona) / e.personas).toFixed(1)} h{real ? ` · reales ${real.toFixed(1)}` : ''}</T>
+                {real > Number(e.horas_persona) && <T v="chico" color={c.error}>Pasó lo estimado</T>}
+              </View>
+              <Contador etiqueta={`personas en ${e.etapa}`} valor={e.personas} min={1} max={20} onChange={(n) => cambiarPersonas(e, n)} />
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
+  const pieOt = (o: OT) => {
+    const p = planDe(o.id);
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <Icono n="calendar-check-outline" size={16} />
+        <T v="chico" style={{ flex: 1 }}>{p?.dur != null ? `${p.dur.toFixed(1)} h · ${fCorta(p.inicio)} → ` : ''}fin {fCorta(p?.fin)}</T>
+        <Boton chico tipo="quiet" icono={abiertas[o.id] ? 'chevron-up' : 'account-hard-hat'} texto="Etapas" onPress={() => setAbiertas((x) => ({ ...x, [o.id]: !x[o.id] }))} />
+        <Boton chico tipo="quiet" icono="file-document-outline" texto="OT" onPress={() => router.push(`/ot/${o.id}`)} />
+      </View>
+    );
+  };
 
   const cabecera = (
-    <View style={{ gap: 20, paddingBottom: 10 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View>
-          <Text style={{ color: colors.text2, fontSize: 13, fontFamily: fonts.regular, textTransform: 'capitalize' }}>{hoy}</Text>
-          <Text style={{ color: colors.text1, fontSize: 30, fontFamily: fonts.bold, letterSpacing: -0.6, marginTop: 4 }}>Producción</Text>
-        </View>
-        <View style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bgCard, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: colors.gold, fontSize: 15, fontFamily: fonts.semibold }}>{iniciales}</Text>
-        </View>
+    <View style={{ gap: 14, paddingBottom: 12 }}>
+      <View>
+        <T v="chico" style={{ textTransform: 'capitalize' }}>{new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}</T>
+        <T v="titulo">Producción</T>
       </View>
-
-      {!!error && <Text style={{ color: colors.red, fontFamily: fonts.regular }}>Error: {(error as Error).message}</Text>}
-
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Kpi valor={String(enProceso.length)} etiqueta="En el taller" acento />
-        <Kpi valor={String(cola.length)} etiqueta="En cola" />
-        <Kpi valor={`${Math.round(horas)} h`} etiqueta="Por fabricar" />
+      {!!error && <Aviso texto={(error as Error).message} />}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+        <Kpi destacado etiqueta="En el taller" valor={String(enProceso.length)} icono="hammer-wrench" />
+        <Kpi etiqueta="En cola" valor={String(cola.length)} icono="tray-full" />
+        <Kpi etiqueta="Horas de cola" valor={`${Math.round(horasCola)} h`} detalle="según etapas y personas" icono="clock-outline" />
       </View>
+      <T v="chico">Si cambiás cuántas personas trabajan en una etapa, se recalculan las fechas de esa OT y de las que siguen.</T>
 
-      {enProceso.length > 0 && <Titulo texto="En el taller" />}
+      {enProceso.length > 0 && <T v="etiqueta">En el taller</T>}
       {enProceso.map((o) => {
         const pct = o.avance_pct ?? 0;
-        const est = estimadas(o);
         return (
-          <View key={o.id} style={tarjeta}>
+          <Vidrio key={o.id} style={{ gap: 10 }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Text style={meta}>{o.numero_ot} · {tipo(o)}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(46,184,158,0.12)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 99 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.primary }} />
-                <Text style={{ color: colors.primary, fontSize: 12, fontFamily: fonts.medium }}>Fabricando</Text>
-              </View>
+              <T v="chico">{o.numero_ot} · {tipo(o)}</T><Badge texto="En taller" tono="info" />
             </View>
-            <Text style={{ color: colors.text1, fontSize: 19, fontFamily: fonts.semibold }}>{cliente(o)}</Text>
+            <T v="h2">{cliente(o)}</T>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-              <View>
-                <Text style={{ color: colors.text1, fontSize: 34, fontFamily: fonts.bold, letterSpacing: -0.7, fontVariant: ['tabular-nums'] }}>{transcurrido(o.iniciada_at)}</Text>
-                <Text style={meta}>{o.iniciada_at ? `desde el OK del ${fecha(o.iniciada_at)}` : 'sin fecha de inicio'}{est ? ` · ${est} h estimadas` : ''}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ color: colors.text1, fontSize: 20, fontFamily: fonts.semibold }}>{pct}%</Text>
-                <Text style={meta}>avance</Text>
-              </View>
+              <View><T v="num">{corrido(o.iniciada_at)}</T><T v="chico">desde el OK{o.iniciada_at ? ` del ${fecha(o.iniciada_at)}` : ''}</T></View>
+              <View style={{ alignItems: 'flex-end' }}><T v="h2">{pct}%</T><T v="chico">avance</T></View>
             </View>
-            <View style={{ height: 6, backgroundColor: colors.border, borderRadius: 3, overflow: 'hidden' }}>
-              <View style={{ height: '100%', width: `${Math.max(pct, 2)}%`, backgroundColor: colors.primary, borderRadius: 3 }} />
+            <View style={{ height: 6, backgroundColor: c.hundido, borderRadius: 3, overflow: 'hidden' }}>
+              <View style={{ width: `${Math.max(pct, 2)}%`, height: '100%', backgroundColor: c.primario }} />
             </View>
-            {!est && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(226,168,72,0.10)', borderRadius: 12, padding: 12 }}>
-                <Feather name="clock" size={18} color={colors.gold} />
-                <Text style={{ flex: 1, color: colors.goldSoft, fontSize: 13, fontFamily: fonts.regular }}>Sin horas estimadas: cargalas en la web (Proyectos)</Text>
-              </View>
-            )}
-            {puede && (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: colors.border, borderRadius: 12, overflow: 'hidden' }}>
-                  <TouchableOpacity accessibilityLabel="Bajar avance" onPress={() => rpc('ot_avance', { p_ot: o.id, p_pct: pct - 10 })} style={paso}><Feather name="minus" size={20} color={colors.text1} /></TouchableOpacity>
-                  <Text style={{ width: 64, textAlign: 'center', color: colors.text2, fontSize: 13, fontFamily: fonts.medium }}>Avance</Text>
-                  <TouchableOpacity accessibilityLabel="Subir avance" onPress={() => rpc('ot_avance', { p_ot: o.id, p_pct: pct + 10 })} style={paso}><Feather name="plus" size={20} color={colors.text1} /></TouchableOpacity>
-                </View>
-                <TouchableOpacity onPress={() => confirmar(`¿Marcar ${o.numero_ot} como entregada?`, () => rpc('ot_entregar', { p_ot: o.id }))} style={[secundario, { flex: 1 }]}>
-                  <Text style={{ color: colors.text1, fontSize: 14, fontFamily: fonts.semibold }}>Entregada</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
+            {gestiona && <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Contador etiqueta="avance (de a 10%)" valor={pct} min={0} max={100} onChange={(n) => rpc('ot_avance', { p_ot: o.id, p_pct: pct + (n > pct ? 10 : -10) })} />
+              <View style={{ flex: 1 }} />
+              <Boton chico tipo="secundario" icono="truck-check-outline" texto="Entregada" onPress={() => confirmar(`¿Marcar ${o.numero_ot} como entregada?`, () => rpc('ot_entregar', { p_ot: o.id }))} />
+            </View>}
+            {pieOt(o)}
+            {etapasDe(o)}
+          </Vidrio>
         );
       })}
 
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <Titulo texto="En cola" />
-        {puede && cola.length > 1 && <Text style={{ color: colors.text3, fontSize: 12, fontFamily: fonts.regular }}>Mantené apretado para reordenar</Text>}
+        <T v="etiqueta">En cola</T>
+        {gestiona && cola.length > 1 && <T v="chico">Mantené apretado para reordenar</T>}
       </View>
-      {cola.length === 0 && <Text style={meta}>No hay OT esperando. Las cotizaciones aprobadas llegan acá.</Text>}
-    </View>
-  );
-
-  const pie = (
-    <View style={{ gap: 10, paddingTop: 10, paddingBottom: 32 }}>
-      {(data?.entregadas.length ?? 0) > 0 && <Titulo texto="Entregadas recientes" />}
-      {data?.entregadas.map((o) => (
-        <View key={o.id} style={[tarjeta, { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }]}>
-          <Feather name="check-circle" size={20} color={colors.primary} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.text1, fontSize: 15, fontFamily: fonts.semibold }}>{cliente(o)}</Text>
-            <Text style={meta}>{o.numero_ot} · entregada {o.fecha_entrega_real ? fecha(o.fecha_entrega_real) : '—'}</Text>
-          </View>
-        </View>
-      ))}
+      {cola.length === 0 && <T v="chico">No hay OT esperando. Las cotizaciones aprobadas llegan acá.</T>}
     </View>
   );
 
   const fila = ({ item: o, drag, isActive, getIndex }: RenderItemParams<OT>) => {
     const i = getIndex() ?? 0;
-    const est = estimadas(o);
     return (
-      <TouchableOpacity
-        onLongPress={puede ? drag : undefined}
-        delayLongPress={250}
-        disabled={isActive}
-        activeOpacity={0.9}
-        style={[tarjeta, { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 10, marginBottom: 10, borderColor: isActive ? colors.primary : colors.border }]}
-      >
-        {puede && <Feather name="menu" size={18} color={colors.text3} />}
-        <View style={{ width: 32, height: 32, borderRadius: 10, backgroundColor: i === 0 ? 'rgba(46,184,158,0.14)' : colors.bgRaised, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: i === 0 ? colors.primary : colors.text2, fontSize: 15, fontFamily: fonts.bold }}>{i + 1}</Text>
-        </View>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ color: colors.text1, fontSize: 15, fontFamily: fonts.semibold }}>{cliente(o)}</Text>
-          <Text style={meta}>{o.numero_ot} · {tipo(o)}{est ? ` · ${est} h` : ''}</Text>
-        </View>
-        {puede && (
-          <TouchableOpacity
-            onPress={() => confirmar(`¿Iniciar ${o.numero_ot}? Desde ahora corre el tiempo.`, () => rpc('ot_iniciar', { p_ot: o.id }))}
-            style={i === 0 ? principal : secundario}
-          >
-            <Text style={{ color: i === 0 ? colors.onPrimary : colors.text1, fontSize: 13, fontFamily: fonts.bold }}>Iniciar</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
+      <Pressable onLongPress={gestiona ? drag : undefined} delayLongPress={250} disabled={isActive} style={{ marginBottom: 10 }}>
+        <Vidrio style={{ gap: 8, borderColor: isActive ? c.primario : undefined }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            {gestiona && <Icono n="drag-vertical" />}
+            <View style={{ width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: i === 0 ? c.primario : c.hundido }}>
+              <T v="h2" color={i === 0 ? c.sobrePrimario : c.texto2} style={{ fontSize: 14 }}>{i + 1}</T>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <T v="h2" lineas={1} style={{ fontSize: 15 }}>{cliente(o)}</T>
+              <T v="chico">{o.numero_ot} · {tipo(o)}</T>
+            </View>
+            {gestiona && <Boton chico tipo={i === 0 ? 'primario' : 'secundario'} texto="Iniciar" onPress={() => confirmar(`¿Iniciar ${o.numero_ot}? Desde ahora corre el tiempo.`, () => rpc('ot_iniciar', { p_ot: o.id }))} />}
+          </View>
+          {pieOt(o)}
+          {etapasDe(o)}
+        </Vidrio>
+      </Pressable>
     );
   };
 
+  const pie = (
+    <View style={{ gap: 10, paddingTop: 6, paddingBottom: 30 }}>
+      {(data?.entregadas.length ?? 0) > 0 && <T v="etiqueta">Entregadas recientes</T>}
+      {data?.entregadas.map((o) => (
+        <Vidrio key={o.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
+          <Icono n="check-circle-outline" color={c.exito} />
+          <View style={{ flex: 1 }}><T v="h2" style={{ fontSize: 15 }}>{cliente(o)}</T><T v="chico">{o.numero_ot} · entregada {fecha(o.fecha_entrega_real)}</T></View>
+        </Vidrio>
+      ))}
+    </View>
+  );
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgDeep, paddingTop: insets.top }}>
+    <View style={{ flex: 1 }}>
       <DraggableFlatList
         data={cola}
         keyExtractor={(o) => o.id}
@@ -202,28 +205,9 @@ export default function ProduccionScreen() {
         onDragEnd={({ data: nueva }) => { setCola(nueva); rpc('ot_reordenar', { p_ids: nueva.map((o) => o.id) }); }}
         ListHeaderComponent={cabecera}
         ListFooterComponent={pie}
-        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: spacing.lg }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.primary} />}
+        contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingTop: insets.top + spacing.md }}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={c.primario} />}
       />
     </View>
   );
-}
-
-const tarjeta = { backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.lg, padding: 16, gap: 14 } as const;
-const meta = { color: colors.text2, fontSize: 12, fontFamily: fonts.regular, marginTop: 2 } as const;
-const paso = { width: 44, height: 44, backgroundColor: colors.bgRaised, alignItems: 'center', justifyContent: 'center' } as const;
-const principal = { height: 44, paddingHorizontal: 16, borderRadius: 12, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' } as const;
-const secundario = { height: 44, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' } as const;
-
-function Kpi({ valor, etiqueta, acento }: { valor: string; etiqueta: string; acento?: boolean }) {
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.bgCard, borderWidth: 1, borderColor: colors.border, borderRadius: radius.md, padding: 12 }}>
-      <Text style={{ color: acento ? colors.primary : colors.text1, fontSize: 24, fontFamily: fonts.bold }}>{valor}</Text>
-      <Text style={{ color: colors.text2, fontSize: 12, fontFamily: fonts.regular }}>{etiqueta}</Text>
-    </View>
-  );
-}
-
-function Titulo({ texto }: { texto: string }) {
-  return <Text style={{ color: colors.text2, fontSize: 13, fontFamily: fonts.semibold, letterSpacing: 0.8, textTransform: 'uppercase' }}>{texto}</Text>;
 }

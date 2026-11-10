@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
   Image, ActivityIndicator, KeyboardAvoidingView, Platform, Alert,
@@ -10,18 +10,17 @@ import { Audio } from 'expo-av';
 import { llamarFuncion } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fonts } from '@/lib/theme';
+import { fonts, useTema, alfa, type Colores } from '@/lib/theme';
 import { comprimir, tomarFoto, type Foto } from '@/lib/imagen';
 
 const { width: SW, height: SH } = Dimensions.get('window');
-const C = {
-  bg:'#0E141B', card:'#161F28', raised:'#1C2733',
-  gold:'#E2A848', honey:'#E2A848', amber:'#E8C88E',
-  green:'#2EB89E', red:'#F07064', teak:'#8b5e3c',
-  t1:'#E6EBF0', t2:'#9AA8B5',
-  t3:'#7D8B99', border:'#263240',
-  borderGold:'rgba(226,168,72,0.35)',
-};
+// Colores del tema (src/lib/theme.ts): el chat se arma con la paleta del modo claro u oscuro.
+const paleta = (t: Colores) => ({
+  bg: 'transparent', card: t.vidrio, raised: t.hundido, strong: t.vidrioFuerte,
+  gold: t.aviso, honey: t.aviso, amber: t.aviso, green: t.primario, red: t.error, teak: t.texto3,
+  t1: t.texto, t2: t.texto2, t3: t.texto3, border: t.linea, borderGold: t.vidrioBorde, onPrimary: t.sobrePrimario,
+});
+type Paleta = ReturnType<typeof paleta>;
 
 // ─── HELPERS ──────────────────────────────────────────────────────
 async function transcribirAudio(uri: string): Promise<string | null> {
@@ -81,13 +80,17 @@ function NogalSVGViewer({
   svgContent: string; sesionId: string;
   onAjustar: () => void; onAprobar: () => void; aprobando: boolean; onVerPlano: () => void;
 }) {
+  const { c: tema } = useTema();
+  const C = useMemo(() => paleta(tema), [tema]);
+  const sv = useMemo(() => crearSv(C), [C]);
+  const s = useMemo(() => crearS(C), [C]);
   const [cargando, setCargando] = useState(true);
   return (
     <View style={sv.wrap}>
       <View style={sv.header}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Text style={sv.title}>Plano leído</Text>
-          <TouchableOpacity onPress={onVerPlano} style={{ backgroundColor: 'rgba(201,168,76,0.15)', padding: 6, borderRadius: 6 }}>
+          <TouchableOpacity onPress={onVerPlano} style={{ backgroundColor: alfa(C.gold, 0.15), padding: 6, borderRadius: 6 }}>
             <Text style={{ color: C.green, fontSize: 12, fontFamily: fonts.semibold }}>Ampliar</Text>
           </TouchableOpacity>
         </View>
@@ -131,7 +134,7 @@ function NogalSVGViewer({
   );
 }
 
-const sv = StyleSheet.create({
+const crearSv = (C: Paleta) => StyleSheet.create({
   wrap:    { backgroundColor: C.card, borderRadius: 12, overflow: 'hidden', marginVertical: 10, borderWidth: 1, borderColor: C.borderGold },
   header:  { padding: 10, backgroundColor: C.raised, borderBottomWidth: 1, borderBottomColor: C.border },
   title:   { color: C.amber, fontSize: 14, fontFamily: fonts.semibold },
@@ -143,7 +146,7 @@ const sv = StyleSheet.create({
   btnSec:  { backgroundColor: C.card, borderWidth: 1, borderColor: C.borderGold },
   btnSecTxt: { color: C.t2, fontSize: 13, fontFamily: fonts.medium },
   btnPri:  { backgroundColor: C.green },
-  btnPriTxt: { color: '#04211C', fontSize: 14, fontFamily: fonts.bold },
+  btnPriTxt: { color: C.onPrimary, fontSize: 14, fontFamily: fonts.bold },
   btnDis:  { opacity: 0.6 },
 });
 
@@ -155,7 +158,11 @@ interface Msg {
 }
 
 // ─── PANTALLA PRINCIPAL ───────────────────────────────────────────
-export default function CotizadorScreen() {
+export default function Asistente() {
+  const { c: tema } = useTema();
+  const C = useMemo(() => paleta(tema), [tema]);
+  const sv = useMemo(() => crearSv(C), [C]);
+  const s = useMemo(() => crearS(C), [C]);
   const scrollRef  = useRef<ScrollView>(null);
   const recordingRef = useRef<Audio.Recording | null>(null);
 
@@ -299,7 +306,7 @@ export default function CotizadorScreen() {
       <View style={s.container}>
 
         {/* HEADER */}
-        <View style={[s.header, { paddingTop: insets.top + 16 }]}>
+        <View style={[s.header, { paddingTop: 16 }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={{ flex: 1, color: C.t1, fontSize: 22, fontFamily: fonts.bold }}>{sesionId ? 'Cotización' : 'Nueva cotización'}</Text>
             {sesionId && (
@@ -406,7 +413,7 @@ export default function CotizadorScreen() {
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={{ backgroundColor: C.green, borderRadius: 14, height: 52, alignItems: 'center', justifyContent: 'center', marginTop: 12 }} onPress={aprobar} disabled={aprobando}>
-                {aprobando ? <ActivityIndicator color="#04211C" /> : <Text style={{ color: '#04211C', fontSize: 15, fontFamily: fonts.bold }}>Aprobar y mandar a la cola</Text>}
+                {aprobando ? <ActivityIndicator color="#04211C" /> : <Text style={{ color: C.onPrimary, fontSize: 15, fontFamily: fonts.bold }}>Aprobar y mandar a la cola</Text>}
               </TouchableOpacity>
               <TouchableOpacity style={{ backgroundColor: C.card, borderRadius: 10, padding: 12, alignItems: 'center', marginTop: 8, borderWidth: 1, borderColor: C.border }} onPress={() => setInput('Quiero modificar: ')}>
                 <Text style={{ color: C.t2, fontSize: 13 }}>Solicitar modificación</Text>
@@ -416,7 +423,7 @@ export default function CotizadorScreen() {
 
           {/* OT CREADA */}
           {otCreada && (
-            <View style={{ backgroundColor: 'rgba(46,184,158,0.10)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(46,184,158,0.35)', marginTop: 8, alignItems: 'center' }}>
+            <View style={{ backgroundColor: alfa(C.green, 0.10), borderRadius: 18, padding: 16, borderWidth: 1, borderColor: alfa(C.green, 0.35), marginTop: 8, alignItems: 'center' }}>
               <Feather name="check-circle" size={30} color={C.green} />
               <Text style={{ color: C.green, fontSize: 15, fontFamily: fonts.bold, marginTop: 6 }}>{otCreada} creada</Text>
               <Text style={{ color: C.t3, fontSize: 12, marginTop: 4 }}>Quedó en la cola de fabricación</Text>
@@ -432,7 +439,7 @@ export default function CotizadorScreen() {
 
         {/* PREVIEW IMÁGENES */}
         {imgs.length > 0 && (
-          <ScrollView horizontal style={{ maxHeight: 90, backgroundColor: '#121A22', borderTopWidth: 1, borderTopColor: C.border }} contentContainerStyle={{ gap: 8, padding: 8 }}>
+          <ScrollView horizontal style={{ maxHeight: 90, backgroundColor: C.strong, borderTopWidth: 1, borderTopColor: C.border }} contentContainerStyle={{ gap: 8, padding: 8 }}>
             {imgs.map((f, i) => (
               <View key={i} style={{ position: 'relative' }}>
                 <Image source={{ uri: f.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
@@ -449,7 +456,7 @@ export default function CotizadorScreen() {
           <TouchableOpacity onPress={takePhoto} style={s.iconBtn} accessibilityLabel="Sacar foto"><Feather name="camera" size={20} color={C.t1} /></TouchableOpacity>
           <TouchableOpacity onPress={pickImg} style={s.iconBtn} accessibilityLabel="Elegir de la galería"><Feather name="image" size={20} color={C.t1} /></TouchableOpacity>
           <TouchableOpacity
-            style={[s.iconBtn, grabando && { backgroundColor: '#e0606030', borderColor: C.red }]}
+            style={[s.iconBtn, grabando && { backgroundColor: alfa(C.red, 0.19), borderColor: C.red }]}
             onPress={grabando ? detenerGrabacion : iniciarGrabacion}
             disabled={transcribiendo}
           >
@@ -475,13 +482,13 @@ export default function CotizadorScreen() {
       {/* MODAL SVG PANTALLA COMPLETA */}
       <Modal visible={!!modalSvg} transparent={false} animationType="slide" statusBarTranslucent onRequestClose={() => setModalSvg(null)}>
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#161F28', borderBottomWidth: 1, borderBottomColor: '#263240' }}>
-            <Text style={{ color: '#E2A848', fontSize: 14, fontFamily: fonts.semibold }}>Plano técnico</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: C.card, borderBottomWidth: 1, borderBottomColor: C.border }}>
+            <Text style={{ color: C.gold, fontSize: 14, fontFamily: fonts.semibold }}>Plano técnico</Text>
             <TouchableOpacity
               onPress={() => setModalSvg(null)}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ backgroundColor: '#e06060', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
+              style={{ backgroundColor: C.red, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
               <Text style={{ color: '#fff', fontSize: 14, fontFamily: fonts.bold }}>✕ Cerrar</Text>
             </TouchableOpacity>
           </View>
@@ -503,12 +510,12 @@ export default function CotizadorScreen() {
       <Modal visible={!!modalImg} transparent={false} animationType="fade" statusBarTranslucent onRequestClose={() => setModalImg(null)}>
         <View style={{ flex: 1, backgroundColor: '#000' }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, backgroundColor: '#111' }}>
-            <Text style={{ color: '#E2A848', fontSize: 13 }}>Render fotorrealista</Text>
+            <Text style={{ color: C.gold, fontSize: 13 }}>Render fotorrealista</Text>
             <TouchableOpacity
               onPress={() => setModalImg(null)}
               activeOpacity={0.7}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={{ backgroundColor: '#e06060', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
+              style={{ backgroundColor: C.red, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 6 }}>
               <Text style={{ color: '#fff', fontSize: 14, fontFamily: fonts.bold }}>✕ Cerrar</Text>
             </TouchableOpacity>
           </View>
@@ -529,20 +536,20 @@ export default function CotizadorScreen() {
 }
 
 // ─── ESTILOS ──────────────────────────────────────────────────────
-const s = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#0E141B' },
-  header:      { gap: 16, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: '#0E141B', borderBottomWidth: 1, borderBottomColor: '#263240' },
-  dot:         { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E2A848' },
-  agentLabel:  { color: '#E2A848', fontSize: 13, fontFamily: fonts.semibold },
+const crearS = (C: Paleta) => StyleSheet.create({
+  container:   { flex: 1, backgroundColor: C.bg },
+  header:      { gap: 16, paddingHorizontal: 20, paddingBottom: 12, backgroundColor: C.bg, borderBottomWidth: 1, borderBottomColor: C.border },
+  dot:         { width: 10, height: 10, borderRadius: 5, backgroundColor: C.gold },
+  agentLabel:  { color: C.gold, fontSize: 13, fontFamily: fonts.semibold },
   headerBtn:   { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, paddingHorizontal: 8 },
-  exBtn:       { backgroundColor: '#161F28', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#263240' },
+  exBtn:       { backgroundColor: C.card, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: C.border },
   bubble:      { borderRadius: 16, padding: 12, marginBottom: 4 },
-  bubbleUser:  { backgroundColor: '#1C2733', alignSelf: 'flex-end', maxWidth: '88%', borderBottomRightRadius: 4 },
-  bubbleAgent: { backgroundColor: '#161F28', alignSelf: 'flex-start', maxWidth: '96%', borderWidth: 1, borderColor: '#263240' },
-  renderAction:{ flex: 1, backgroundColor: '#161F28', borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: '#263240' },
-  inputArea:   { flexDirection: 'row', alignItems: 'flex-end', gap: 5, padding: 10, backgroundColor: '#121A22', borderTopWidth: 1, borderTopColor: '#263240' },
-  iconBtn:     { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: '#161F28', borderRadius: 22, borderWidth: 1, borderColor: '#263240' },
-  input:       { flex: 1, backgroundColor: '#161F28', borderRadius: 22, borderWidth: 1, borderColor: '#263240', color: '#E6EBF0', paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, maxHeight: 100, fontFamily: fonts.regular },
+  bubbleUser:  { backgroundColor: C.raised, alignSelf: 'flex-end', maxWidth: '88%', borderBottomRightRadius: 4 },
+  bubbleAgent: { backgroundColor: C.card, alignSelf: 'flex-start', maxWidth: '96%', borderWidth: 1, borderColor: C.border },
+  renderAction:{ flex: 1, backgroundColor: C.card, borderRadius: 8, padding: 8, alignItems: 'center', borderWidth: 1, borderColor: C.border },
+  inputArea:   { flexDirection: 'row', alignItems: 'flex-end', gap: 5, padding: 10, backgroundColor: C.strong, borderTopWidth: 1, borderTopColor: C.border },
+  iconBtn:     { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.border },
+  input:       { flex: 1, backgroundColor: C.card, borderRadius: 22, borderWidth: 1, borderColor: C.border, color: C.t1, paddingHorizontal: 16, paddingVertical: 11, fontSize: 14, maxHeight: 100, fontFamily: fonts.regular },
   sendBtn:     { width: 44, height: 44, backgroundColor: C.green, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  modalBtn:    { backgroundColor: '#161F28', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: '#263240' },
+  modalBtn:    { backgroundColor: C.card, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: C.border },
 });

@@ -1,36 +1,29 @@
-// app/(tabs)/mas.tsx — accesos secundarios y salir
-import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter, type Href } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+// app/(tabs)/mas.tsx — prospección (admin y gestión), tema y salir.
+import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAppStore } from '@/store';
-import { colors, spacing, radius, fonts } from '@/lib/theme';
+import { puede } from '@/lib/permisos';
+import { useTema } from '@/lib/theme';
+import { Pantalla, Vidrio, T, Fila, Boton, Segmentado } from '@/components/ui';
 
-export default function MasScreen() {
+export default function Mas() {
   const router = useRouter();
   const empleado = useAppStore((s) => s.empleado);
-  const filas: { icono: React.ComponentProps<typeof Feather>['name']; texto: string; ir: Href }[] = [
-    { icono: 'folder', texto: 'Proyectos', ir: '/(tabs)/proyectos' },
-    { icono: 'users', texto: 'Clientes', ir: '/(tabs)/clientes' },
-  ];
+  const { modo, setModo } = useTema();
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bgDeep, padding: spacing.lg, gap: spacing.lg }}>
-      <View style={{ backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, padding: spacing.md }}>
-        <Text style={{ color: colors.text1, fontSize: 17, fontFamily: fonts.semibold }}>{empleado?.nombre}</Text>
-        <Text style={{ color: colors.text2, fontSize: 13, fontFamily: fonts.regular, marginTop: 2, textTransform: 'capitalize' }}>{empleado?.rol}</Text>
-      </View>
-      <View style={{ backgroundColor: colors.bgCard, borderColor: colors.border, borderWidth: 1, borderRadius: radius.lg, overflow: 'hidden' }}>
-        {filas.map((f, i) => (
-          <TouchableOpacity key={f.texto} onPress={() => router.push(f.ir)} style={{ minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: spacing.md, borderTopWidth: i ? 1 : 0, borderTopColor: colors.border }}>
-            <Feather name={f.icono} size={20} color={colors.text2} />
-            <Text style={{ flex: 1, color: colors.text1, fontSize: 15, fontFamily: fonts.medium }}>{f.texto}</Text>
-            <Feather name="chevron-right" size={18} color={colors.text3} />
-          </TouchableOpacity>
-        ))}
-      </View>
-      <TouchableOpacity onPress={() => supabase.auth.signOut()} style={{ minHeight: 52, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: colors.red, fontSize: 15, fontFamily: fonts.semibold }}>Cerrar sesión</Text>
-      </TouchableOpacity>
-    </View>
+    <Pantalla titulo="Más">
+      <Vidrio style={{ gap: 2 }}>
+        <T v="h2">{empleado?.nombre}</T>
+        <T v="chico" style={{ textTransform: 'capitalize' }}>{empleado?.rol}</T>
+      </Vidrio>
+      {puede(empleado?.rol, 'prospeccion') && <Vidrio style={{ paddingVertical: 4 }}>
+        <Fila primera icono="email-search-outline" titulo="Prospección" sub="Bandeja de mails para aprobar" onPress={() => router.push('/prospeccion')} />
+      </Vidrio>}
+      <Vidrio style={{ gap: 10 }}>
+        <T v="h2">Tema</T>
+        <Segmentado opciones={[['sistema', 'Del sistema'], ['claro', 'Claro'], ['oscuro', 'Oscuro']]} valor={modo} onChange={setModo} />
+      </Vidrio>
+      <Boton tipo="secundario" icono="logout" texto="Cerrar sesión" onPress={() => supabase.auth.signOut()} />
+    </Pantalla>
   );
 }

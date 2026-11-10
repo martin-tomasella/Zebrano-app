@@ -22,15 +22,26 @@ React Native + Expo Router v4 · TypeScript · Supabase · TanStack Query · Zus
 - Pollinations.ai: https://image.pollinations.ai/prompt/{encoded_prompt}
 - Sin API key, sin costo
 
-## Flujo cotizador
-1. Foto del plano (comprimida a 1600 px JPEG, `src/lib/imagen.ts`) o texto → app/(tabs)/cotizador.tsx
-2. POST directo a la edge function `zebrano-cotizador` con el JWT del empleado (`llamarFuncion` en src/lib/supabase.ts) → canal interno
-3. Plano técnico (SVG) → aprobar → render → presupuesto con link al PDF → aprobar → OT en la cola de fabricación
-4. La sesión es la misma `cotizacion_sesiones` que ve la web
+## Flujo principal: Nuevo trabajo (app/nuevo-trabajo.tsx)
+Igual que la web (src/pages/NuevoTrabajo.jsx): para quién → diseño editable → render → cotización → OT en cola.
+Cada paso es una `accion` de `zebrano-cotizador` v66 (`leer`, `guardar_diseno`, `render`, `cotizar`, después `aprobar_cotizacion`) con el JWT del empleado (`cotizador()` en src/lib/supabase.ts).
+El chat (app/asistente.tsx) queda como asistente secundario.
+
+## Navegación
+Inicio · Trabajos (Nuevo trabajo, Cotizaciones, Clientes y obras, Prospectos) · Producción (cola con planificación; /ot/[id] con Despiece, Corte y Materiales) · Compras (Tickets, Necesidades, Stock) · Más (Prospección, Tema, Salir).
+Permisos por rol en src/lib/permisos.ts (el taller no ve Trabajos ni Compras; Prospección solo admin y gestión, como el RLS de `prosp_*`).
+
+## Lógica copiada de la web (no reescribir)
+- `src/lib/corte.js`: copia tal cual de zebrano-web/src/lib/corte.js (tipos en corte.d.ts).
+- `src/lib/plan.ts`: `planificar` y `sumarHorasHabiles` de zebrano-web/src/components/PlanCola.jsx.
+- Chequeo: `npx tsx scripts/check.ts`.
+
+## Tema
+Glass v6 en `src/lib/theme.ts` (tokens claro/oscuro, `useTema()`) y `src/components/ui.tsx` (Fondo, Vidrio, Boton, Badge, Segmentado, Pasos, Campo, Selector…). Nada de colores sueltos en las pantallas.
 
 ## Login y permisos
 - Supabase Auth email/contraseña; solo entra quien tiene fila activa en `empleados`. Nada de API keys en la app: solo la publishable key (app.json) y el JWT.
-- Producción: cola con `ot_iniciar`, `ot_reordenar`, `ot_avance`, `ot_entregar` (solo admin y gestión, validado en la base).
+- PDF del bucket privado `documentos`: `abrirDocumento()` (link firmado de 10 minutos).
 
 ## Build del APK
 - Subir `versionCode` en app.json, commitear y pushear a main → GitHub Actions (`.github/workflows/apk.yml`) compila con Gradle y publica `zebrano-vN.apk` en Releases (N = versionCode). No usa EAS.
@@ -45,7 +56,7 @@ zebrano-proyectos/
             └── cotizacion_v1.pdf
 
 ## Reglas
-- Dark theme obligatorio (colors de src/lib/theme.ts)
+- Tema claro y oscuro con los tokens de src/lib/theme.ts (nunca colores sueltos)
 - Sin `any` en TypeScript
 - Commit después de cada feature
 - EAS account: tomillo007

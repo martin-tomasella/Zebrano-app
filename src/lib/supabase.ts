@@ -1,6 +1,6 @@
 // src/lib/supabase.ts
 import { createClient } from '@supabase/supabase-js';
-import { AppState } from 'react-native';
+import { AppState, Linking } from 'react-native';
 import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
@@ -44,6 +44,22 @@ export async function llamarFuncion(nombre: string, body: BodyInit, json = true)
     headers: { apikey: supabaseAnon, Authorization: `Bearer ${session?.access_token ?? ''}`, ...(json ? { 'Content-Type': 'application/json' } : {}) },
     body,
   });
+}
+
+// Un paso del flujo "Nuevo trabajo" (zebrano-cotizador v66). Tira error con el mensaje de la función si no sale bien.
+export async function cotizador<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T & { ok: true }> {
+  const r = await llamarFuncion('zebrano-cotizador', JSON.stringify(body));
+  const d = await r.json().catch(() => ({}));
+  if (!d.ok) throw new Error(d.error || `Error ${r.status}`);
+  return d;
+}
+
+// PDF del bucket privado "documentos": link firmado de 10 minutos (si ya viene firmado, se abre tal cual).
+export async function abrirDocumento(pathOUrl: string) {
+  if (/^https?:/.test(pathOUrl)) return Linking.openURL(pathOUrl);
+  const { data, error } = await supabase.storage.from('documentos').createSignedUrl(pathOUrl, 600);
+  if (error || !data?.signedUrl) throw new Error(error?.message ?? 'No se pudo abrir el documento');
+  return Linking.openURL(data.signedUrl);
 }
 
 // ── STORAGE: subir archivo a Supabase Storage ─────────────

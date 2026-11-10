@@ -28,3 +28,12 @@ export function base64ABytes(b64: string): Uint8Array {
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
 }
+
+// Varias de la galería, comprimidas (planos, bosquejos, fotos del lugar)
+export async function elegirFotos(max: number): Promise<Foto[]> {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted || max <= 0) return [];
+  const res = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: true, selectionLimit: max });
+  if (res.canceled) return [];
+  return Promise.all(res.assets.slice(0, max).map(comprimir));
+}

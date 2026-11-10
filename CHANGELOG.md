@@ -1,5 +1,16 @@
 # Changelog
 
+## v10 — 10/11/2026
+Replica el ERP v2 de la web (mismo backend, nada nuevo en Supabase).
+- **Nuevo trabajo** como entrada principal, en 5 pasos (Para quién · Diseño · Render · Cotización · OT) contra `zebrano-cotizador` v66: cliente y obra, prospecto o cliente nuevo; texto dictado y hasta 6 fotos de 1600 px; tabla de módulos y mano de obra editables con el plano; render con pedido de cambio; precio en ARS y USD (oficial BCRA) con el PDF; aprobación que deja la OT en cola. Se entra desde Inicio, Trabajos, la ficha de cliente, cada obra y cada prospecto. El chat queda como asistente.
+- **Producción:** planificación de la cola por etapa y personas (misma lógica que la web: jornada de 7 h, lunes a viernes, una OT por vez); al cambiar personas se recalculan y guardan las fechas de fin. Horas reales contra estimadas por etapa.
+- **OT:** despiece por módulo, corte de placas con `corte.js` (dibujo por placa, aprovechamiento, retazos, hoja de corte para imprimir o compartir en PDF) y materiales con decisión comprar / usar stock.
+- **Compras:** tickets con foto (como la v7), necesidades de todas las OT y stock con conteo físico.
+- **Clientes y obras:** ficha con obras y trabajos (ARS y USD del día), cotizaciones con descuento y PDF firmado, vendido, cobrado y saldo. Prospectos con "Cotizar trabajo".
+- **Prospección** (admin y gestión): bandeja de mails para aprobar, editar, descartar y pasar a prospecto. Aprobar no envía nada.
+- **Tema Glass v6** como la web: foto de fondo con velo, paneles de vidrio, verde laca, claro y oscuro según el sistema o elegido en Más.
+- Permisos por rol: el taller no ve precios, Trabajos ni Compras.
+
 ## v9 — 04/11/2026
 - Menú inferior «liquid»: la burbuja verde se desliza con un resorte hasta la pestaña elegida, el ícono sube adentro de la burbuja y aparece la etiqueta.
 - Ícono de la app y pantalla de inicio con el logo de Zebrano (mobiliario + arquitectura).

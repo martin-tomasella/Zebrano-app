@@ -1,26 +1,20 @@
-// app/(tabs)/_layout.tsx — cinco pestañas con el menú «liquid» (src/components/BarraLiquida.tsx)
+// app/(tabs)/_layout.tsx — Inicio · Trabajos · Producción · Compras · Más, con el menú «liquid».
+// El taller no ve Trabajos ni Compras (precios y ventas), como en la web (src/lib/permisos.js).
 import { Tabs } from 'expo-router';
 import BarraLiquida from '@/components/BarraLiquida';
-import { colors, fonts } from '@/lib/theme';
+import { useAppStore } from '@/store';
+import { puede } from '@/lib/permisos';
 
 export default function TabLayout() {
+  const rol = useAppStore((s) => s.empleado?.rol);
+  const visibles = ['index', 'produccion', 'mas', ...(puede(rol, 'ventas') ? ['trabajos'] : []), ...(puede(rol, 'compras') ? ['compras'] : [])];
   return (
-    <Tabs
-      tabBar={(p) => <BarraLiquida {...p} />}
-      screenOptions={{
-        headerStyle: { backgroundColor: colors.bgDeep },
-        headerShadowVisible: false,
-        headerTintColor: colors.text1,
-        headerTitleStyle: { fontFamily: fonts.bold, fontSize: 20 },
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: 'Inicio', headerShown: false }} />
-      <Tabs.Screen name="produccion" options={{ title: 'Producción', headerShown: false }} />
-      <Tabs.Screen name="cotizador" options={{ title: 'Cotizar', headerShown: false }} />
-      <Tabs.Screen name="tickets" options={{ title: 'Tickets' }} />
+    <Tabs tabBar={(p) => <BarraLiquida {...p} visibles={visibles} />} screenOptions={{ headerShown: false, sceneStyle: { backgroundColor: 'transparent' } }}>
+      <Tabs.Screen name="index" options={{ title: 'Inicio' }} />
+      <Tabs.Screen name="trabajos" options={{ title: 'Trabajos', href: visibles.includes('trabajos') ? undefined : null }} />
+      <Tabs.Screen name="produccion" options={{ title: 'Producción' }} />
+      <Tabs.Screen name="compras" options={{ title: 'Compras', href: visibles.includes('compras') ? undefined : null }} />
       <Tabs.Screen name="mas" options={{ title: 'Más' }} />
-      <Tabs.Screen name="proyectos" options={{ href: null, title: 'Proyectos' }} />
-      <Tabs.Screen name="clientes" options={{ href: null, title: 'Clientes' }} />
     </Tabs>
   );
 }
