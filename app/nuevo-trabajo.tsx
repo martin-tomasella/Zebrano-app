@@ -7,7 +7,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Image } from 'expo-image';
 import { SvgXml } from 'react-native-svg';
 import { supabase, cotizador } from '@/lib/supabase';
-import { tomarFoto, elegirFotos, type Foto } from '@/lib/imagen';
+import { tomarFoto, elegirFotos, girar, type Foto } from '@/lib/imagen';
+import VistaPrevia, { useVistaPrevia, useAlCostado } from '@/components/VistaPrevia';
 import { useDictado } from '@/lib/voz';
 import { useTema, radius } from '@/lib/theme';
 import { Pantalla, Vidrio, T, Boton, Segmentado, Pasos, Campo, Selector, Chips, Contador, Aviso, Cargando, Icono, ars, usd } from '@/components/ui';
@@ -15,6 +16,8 @@ import { Pantalla, Vidrio, T, Boton, Segmentado, Pasos, Campo, Selector, Chips, 
 const PASOS = ['Para quién', 'Diseño', 'Render', 'Cotización', 'OT'];
 const FAMILIAS = ['bajo', 'alacena', 'columna', 'placard', 'cajonera', 'abierto'] as const;
 const ETAPAS_MO = ['corte', 'canteado', 'armado', 'terminacion', 'instalacion'] as const;
+// Cotizador v68: el laqueado y el lustrado se cotizan como material por receta (terminacion_receta × precio del insumo).
+const TERMINACIONES = [{ valor: 'sin definir', texto: 'Sin definir (preguntar)' }, { valor: 'melamina', texto: 'Melamina (sin pintar)' }, { valor: 'laqueado sintetico', texto: 'Laqueado sintético' }, { valor: 'laqueado al agua', texto: 'Laqueado al agua' }, { valor: 'lustrado', texto: 'Lustrado poliuretano' }];
 const MAX_FOTOS = 6;
 
 interface Modulo { nombre: string; familia: string; ancho_mm: number; alto_mm: number; prof_mm: number; puertas: number; cajones: number; estantes: number; frentes: string; patas: number; zocalo_mm: number; terminaciones: number; cantidad: number; material: string }
@@ -46,6 +49,8 @@ export default function NuevoTrabajo() {
   const [modulos, setModulos] = useState<Modulo[]>([]);
   const [manoObra, setManoObra] = useState<ManoObra[]>([]);
   const [estilo, setEstilo] = useState('');
+  const [terminacion, setTerminacion] = useState('sin definir');
+  const [m2Term, setM2Term] = useState('');
   const [tipo, setTipo] = useState('');
   const [preguntas, setPreguntas] = useState<string[]>([]);
   const [svg, setSvg] = useState<string | null>(null);
@@ -72,7 +77,7 @@ export default function NuevoTrabajo() {
 
   const leer = () => correr('Leyendo el plano y armando los módulos…', async () => {
     if (!texto.trim() && !fotos.length) throw new Error('Escribí las medidas o agregá un plano, foto o bosquejo.');
-    const d = await cotizador<{ sesion_id: string; modulos: Modulo[]; mano_obra?: ManoObra[]; estilo?: string; tipo_trabajo?: string; preguntas?: string[]; svg_tecnico?: string | null }>({
+    const d = await cotizador<{ sesion_id: string; modulos: Modulo[]; mano_obra?: ManoObra[]; estilo?: string; tipo_trabajo?: string; preguntas?: string[]; svg_tecnico?: string | null; terminacion?: string }>({
       accion: 'leer', origen: 'app', mensaje: texto, imagenes_base64: fotos.map((f) => f.base64),
       ...(para === 'cliente' ? { cliente_id: clienteId || null, obra_id: obraId || null } : {}),
       ...(para === 'prospecto' ? { prospecto_id: prospectoId || null } : {}),
@@ -80,12 +85,12 @@ export default function NuevoTrabajo() {
     setSid(d.sesion_id);
     const p = para === 'cliente' ? clientes?.find((x) => x.id === clienteId) : para === 'prospecto' ? prospectos?.find((x) => x.id === prospectoId) : undefined;
     if (p) await supabase.from('cotizacion_sesiones').update({ cliente_nombre: nombreDe(p), cliente_telefono: p.telefono || null, cliente_email: p.email || null }).eq('id', d.sesion_id);
-    setModulos(d.modulos); setManoObra(d.mano_obra ?? []); setEstilo(d.estilo ?? ''); setTipo(d.tipo_trabajo ?? ''); setPreguntas(d.preguntas ?? []); setSvg(d.svg_tecnico ?? null);
+    setModulos(d.modulos); setManoObra(d.mano_obra ?? []); setEstilo(d.estilo ?? ''); setTipo(d.tipo_trabajo ?? ''); setTerminacion(d.terminacion || 'sin definir'); setPreguntas(d.preguntas ?? []); setSvg(d.svg_tecnico ?? null);
     setPaso(1);
   });
 
   const guardar = async () => {
-    const d = await cotizador<{ modulos: Modulo[]; svg_tecnico: string | null }>({ accion: 'guardar_diseno', sesion_id: sid, modulos, mano_obra: manoObra, estilo, tipo_trabajo: tipo });
+    const d = await cotizador<{ modulos: Modulo[]; svg_tecnico: string | null }>({ accion: 'guardar_diseno', sesion_id: sid, modulos, mano_obra: manoObra, estilo, tipo_trabajo: tipo, terminacion, laqueado_m2: Number(m2Term.replace(',', '.')) || 0 });
     setModulos(d.modulos); setSvg(d.svg_tecnico);
   };
   const pedirRender = (conCambio: boolean) => correr('Generando el render. Puede tardar hasta un minuto…', async () => {
@@ -98,7 +103,7 @@ export default function NuevoTrabajo() {
   });
   const cotizar = (guardarAntes: boolean) => correr('Calculando materiales, herrajes y mano de obra…', async () => {
     if (guardarAntes) await guardar();
-    setCot(await cotizador<{ respuesta: string; resumen?: Resumen }>({ accion: 'cotizar', sesion_id: sid, mano_obra: manoObra }));
+    setCot(await cotizador<{ respuesta: string; resumen?: Resumen }>({ accion: 'cotizar', sesion_id: sid, mano_obra: manoObra, terminacion, laqueado_m2: Number(m2Term.replace(',', '.')) || 0 }));
     setPaso(3);
   });
   const aprobar = () => Alert.alert('¿Aprobar la cotización?', 'Se crean la obra, el trabajo y la orden de trabajo. La OT queda en la cola de fábrica, sin fecha de inicio.', [
@@ -114,9 +119,14 @@ export default function NuevoTrabajo() {
   const horasPersona = manoObra.reduce((a, m) => a + (Number(m.horas_estimadas) || 0) * (Number(m.operarios) || 1), 0);
   const resumen = cot?.resumen;
   const listo1 = para === 'nuevo' || (para === 'cliente' ? !!clienteId : !!prospectoId);
+  // Vista previa arriba de los pasos (o al costado en tablet horizontal): render, plano técnico y lo que se subió.
+  const alCostado = useAlCostado();
+  const prev = useVistaPrevia(sid, `${paso}|${render}|${svg?.length}|${resumen?.version}`, fotos.map((f) => f.uri));
+  const panel = <VistaPrevia vistas={prev.vistas} precio={prev.precio} precioUsd={prev.precioUsd} alto={alCostado ? 420 : 220} />;
 
-  return (
+  const pasos = (
     <Pantalla>
+      {!alCostado && panel}
       <Pasos pasos={PASOS} actual={paso} onIr={setPaso} bloqueado={!!ot || !!ocupado} />
       {!!error && <Aviso texto={error} />}
       {!!ocupado && <Vidrio><Cargando texto={ocupado} /></Vidrio>}
@@ -147,13 +157,19 @@ export default function NuevoTrabajo() {
           </View>
           {fotos.length > 0 && <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
             {fotos.map((f, i) => (
-              <Pressable key={f.uri} onPress={() => setFotos((x) => x.filter((_, j) => j !== i))} accessibilityLabel={`Quitar adjunto ${i + 1}`}>
-                <Image source={{ uri: f.uri }} style={{ width: 72, height: 72, borderRadius: radius.sm }} />
-                <View style={{ position: 'absolute', top: 4, right: 4, backgroundColor: c.vidrioFuerte, borderRadius: 10 }}><Icono n="close" size={16} color={c.texto} /></View>
-              </Pressable>
+              <View key={f.uri} style={{ gap: 4, alignItems: 'center' }}>
+                <Image source={{ uri: f.uri }} style={{ width: 84, height: 84, borderRadius: radius.sm }} accessibilityLabel={`Adjunto ${i + 1}`} />
+                <View style={{ flexDirection: 'row', gap: 4 }}>
+                  <Pressable onPress={async () => { const g = await girar(f); setFotos((x) => x.map((y, j) => (j === i ? g : y))); }} accessibilityRole="button" accessibilityLabel={`Girar adjunto ${i + 1} 90 grados`}
+                    style={{ width: 40, height: 36, borderRadius: radius.sm, backgroundColor: c.vidrioFuerte, alignItems: 'center', justifyContent: 'center' }}><Icono n="rotate-right" size={20} color={c.texto} /></Pressable>
+                  <Pressable onPress={() => setFotos((x) => x.filter((_, j) => j !== i))} accessibilityRole="button" accessibilityLabel={`Quitar adjunto ${i + 1}`}
+                    style={{ width: 40, height: 36, borderRadius: radius.sm, backgroundColor: c.vidrioFuerte, alignItems: 'center', justifyContent: 'center' }}><Icono n="close" size={18} color={c.texto} /></Pressable>
+                </View>
+              </View>
             ))}
           </View>}
           <T v="chico">Plano, foto o bosquejo: hasta {MAX_FOTOS}, se mandan comprimidos.</T>
+          {fotos.length > 0 && <T v="chico">Si el plano está de costado, giralo con ↻ hasta que los textos se lean derechos: el agente lo lee mucho mejor.</T>}
         </Vidrio>
         <Boton icono="auto-fix" texto="Leer y armar el diseño" onPress={leer} disabled={!!ocupado || !listo1} />
       </>}
@@ -213,6 +229,8 @@ export default function NuevoTrabajo() {
             </View>
           ))}
           <Boton chico tipo="quiet" icono="plus" texto="Etapa" onPress={() => setManoObra((ms) => [...ms, { etapa: 'armado', horas_estimadas: 0, operarios: 1 }])} />
+          <Selector etiqueta="Terminación" valor={terminacion} onChange={setTerminacion} opciones={TERMINACIONES} />
+          {/laque|lustr/.test(terminacion) && <Campo etiqueta="m² a terminar (vacío = frentes de ambas caras + laterales a la vista)" keyboardType="decimal-pad" value={m2Term} onChangeText={setM2Term} placeholder="Automático" />}
           <Campo etiqueta="Estilo para el render" value={estilo} onChangeText={setEstilo} placeholder="Ej.: nórdico, tiradores negros" />
         </Vidrio>
 
@@ -250,5 +268,12 @@ export default function NuevoTrabajo() {
         <Boton tipo="secundario" texto="Ver clientes y obras" onPress={() => router.replace('/clientes')} />
       </Vidrio>}
     </Pantalla>
+  );
+  if (!alCostado || !prev.vistas.length) return pasos;
+  return (
+    <View style={{ flex: 1, flexDirection: 'row' }}>
+      <View style={{ flex: 55, padding: 20, paddingRight: 0 }}>{panel}</View>
+      <View style={{ flex: 45 }}>{pasos}</View>
+    </View>
   );
 }

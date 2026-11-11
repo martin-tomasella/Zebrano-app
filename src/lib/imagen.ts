@@ -37,3 +37,9 @@ export async function elegirFotos(max: number): Promise<Foto[]> {
   if (res.canceled) return [];
   return Promise.all(res.assets.slice(0, max).map(comprimir));
 }
+
+// Gira 90° (sentido horario) un plano que vino de costado; el agente lee mucho mejor los planos derechos.
+export async function girar(f: Foto): Promise<Foto> {
+  const r = await manipulateAsync(f.uri, [{ rotate: 90 }], { compress: 0.8, format: SaveFormat.JPEG, base64: true });
+  return { uri: r.uri, base64: r.base64 ?? '' };
+}

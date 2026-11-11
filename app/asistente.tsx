@@ -11,7 +11,8 @@ import { llamarFuncion } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fonts, useTema, alfa, type Colores } from '@/lib/theme';
-import { comprimir, tomarFoto, type Foto } from '@/lib/imagen';
+import { comprimir, tomarFoto, girar, type Foto } from '@/lib/imagen';
+import VistaPrevia, { useVistaPrevia, useAlCostado } from '@/components/VistaPrevia';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 // Colores del tema (src/lib/theme.ts): el chat se arma con la paleta del modo claro u oscuro.
@@ -299,11 +300,17 @@ export default function Asistente() {
   };
 
   const canSend = !loading && (input.trim().length > 0 || imgs.length > 0);
+  // Vista previa del diseño (como el panel de la web): render, plano técnico y el último plano subido.
+  const alCostado = useAlCostado();
+  const subidos = [...msgs].reverse().find((m) => m.rol === 'user' && m.imagenes?.length)?.imagenes ?? [];
+  const prev = useVistaPrevia(sesionId, `${msgs.length}|${renderUrl}|${otCreada}`, subidos);
+  const panel = <VistaPrevia vistas={prev.vistas} precio={prev.precio} precioUsd={prev.precioUsd} alto={alCostado ? 420 : 220} />;
 
   // ─── RENDER ─────────────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={s.container}>
+    <KeyboardAvoidingView style={{ flex: 1, flexDirection: alCostado ? 'row' : 'column' }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {alCostado && prev.vistas.length > 0 && <View style={{ flex: 55, padding: 16, paddingRight: 0 }}>{panel}</View>}
+      <View style={[s.container, alCostado && prev.vistas.length > 0 ? { flex: 45 } : null]}>
 
         {/* HEADER */}
         <View style={[s.header, { paddingTop: 16 }]}>
@@ -325,6 +332,8 @@ export default function Asistente() {
             ))}
           </View>
         </View>
+
+        {!alCostado && prev.vistas.length > 0 && <View style={{ paddingHorizontal: 12, paddingTop: 10 }}>{panel}</View>}
 
         {/* CHAT */}
         <ScrollView ref={scrollRef} style={{ flex: 1 }} contentContainerStyle={{ padding: 12, gap: 6 }} keyboardShouldPersistTaps="handled">
@@ -443,6 +452,10 @@ export default function Asistente() {
             {imgs.map((f, i) => (
               <View key={i} style={{ position: 'relative' }}>
                 <Image source={{ uri: f.uri }} style={{ width: 72, height: 72, borderRadius: 8 }} />
+                <TouchableOpacity style={{ position: 'absolute', bottom: 2, right: 2, backgroundColor: C.strong, borderRadius: 14, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}
+                  onPress={async () => { const g = await girar(f); setImgs(p => p.map((x, idx) => idx === i ? g : x)); }} accessibilityLabel={`Girar adjunto ${i + 1} 90 grados`}>
+                  <Feather name="rotate-cw" size={16} color={C.t1} />
+                </TouchableOpacity>
                 <TouchableOpacity style={{ position: 'absolute', top: 2, right: 2, backgroundColor: C.red, borderRadius: 8, width: 18, height: 18, alignItems: 'center', justifyContent: 'center' }} onPress={() => setImgs(p => p.filter((_, idx) => idx !== i))}>
                   <Text style={{ color: '#fff', fontSize: 10 }}>X</Text>
                 </TouchableOpacity>
@@ -450,6 +463,7 @@ export default function Asistente() {
             ))}
           </ScrollView>
         )}
+        {imgs.length > 0 && <Text style={{ color: C.t3, fontSize: 12, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: C.strong }}>Si el plano está de costado, giralo con ↻ hasta que los textos se lean derechos.</Text>}
 
         {/* INPUT */}
         <View style={s.inputArea}>

@@ -1,5 +1,12 @@
 # Changelog
 
+## v11 — 11/11/2026
+Replica los cambios de la web del 11/11 (sin tocar el backend).
+- **Vista previa del diseño** en el asistente y en Nuevo trabajo: tarjeta de vidrio con pestañas Render / Plano técnico / Plano subido y el precio sin IVA y en USD. En el teléfono va arriba; en tablet horizontal, al costado (55% / 45%).
+- **Visor a pantalla completa** al tocar la vista previa: pellizcar para zoom, arrastrar para moverse, Ajustar / 100% / 200% / 300%, pestañas y Compartir. Los planos sobre fondo blanco.
+- **↻ para girar 90°** los planos adjuntos antes de mandarlos, con la ayuda «Si el plano está de costado, giralo con ↻ hasta que los textos se lean derechos».
+- **Terminación** en el paso 2 de Nuevo trabajo (cotizador v68): sin definir, melamina, laqueado sintético, laqueado al agua o lustrado; con laqueado o lustrado, m² a terminar (vacío = cálculo del cotizador). Se manda en `guardar_diseno` y `cotizar`, y `leer` trae la guardada.
+
 ## v10 — 10/11/2026
 Replica el ERP v2 de la web (mismo backend, nada nuevo en Supabase).
 - **Nuevo trabajo** como entrada principal, en 5 pasos (Para quién · Diseño · Render · Cotización · OT) contra `zebrano-cotizador` v66: cliente y obra, prospecto o cliente nuevo; texto dictado y hasta 6 fotos de 1600 px; tabla de módulos y mano de obra editables con el plano; render con pedido de cambio; precio en ARS y USD (oficial BCRA) con el PDF; aprobación que deja la OT en cola. Se entra desde Inicio, Trabajos, la ficha de cliente, cada obra y cada prospecto. El chat queda como asistente.
