@@ -2,7 +2,7 @@
   "expo": {
     "name": "Zebrano",
     "slug": "zebrano-app",
-    "version": "1.11.0",
+    "version": "1.12.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "zebrano",
@@ -16,7 +16,7 @@
         "backgroundColor": "#1E150E"
       },
       "package": "com.martintomasella.zebrano",
-      "versionCode": 11,
+      "versionCode": 12,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.READ_EXTERNAL_STORAGE",

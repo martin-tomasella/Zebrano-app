@@ -43,6 +43,7 @@ export default function NuevoTrabajo() {
   const [clienteId, setClienteId] = useState(params.cliente ?? '');
   const [obraId, setObraId] = useState(params.obra ?? '');
   const [prospectoId, setProspectoId] = useState(params.prospecto ?? '');
+  const [nuevo, setNuevo] = useState({ nombre: '', telefono: '', email: '' });
   const [texto, setTexto] = useState('');
   const [fotos, setFotos] = useState<Foto[]>([]);
   // Paso 2+
@@ -83,7 +84,7 @@ export default function NuevoTrabajo() {
       ...(para === 'prospecto' ? { prospecto_id: prospectoId || null } : {}),
     });
     setSid(d.sesion_id);
-    const p = para === 'cliente' ? clientes?.find((x) => x.id === clienteId) : para === 'prospecto' ? prospectos?.find((x) => x.id === prospectoId) : undefined;
+    const p = para === 'cliente' ? clientes?.find((x) => x.id === clienteId) : para === 'prospecto' ? prospectos?.find((x) => x.id === prospectoId) : { id: '', nombre: nuevo.nombre.trim(), telefono: nuevo.telefono.trim(), email: nuevo.email.trim() };
     if (p) await supabase.from('cotizacion_sesiones').update({ cliente_nombre: nombreDe(p), cliente_telefono: p.telefono || null, cliente_email: p.email || null }).eq('id', d.sesion_id);
     setModulos(d.modulos); setManoObra(d.mano_obra ?? []); setEstilo(d.estilo ?? ''); setTipo(d.tipo_trabajo ?? ''); setTerminacion(d.terminacion || 'sin definir'); setPreguntas(d.preguntas ?? []); setSvg(d.svg_tecnico ?? null);
     setPaso(1);
@@ -118,7 +119,7 @@ export default function NuevoTrabajo() {
   const setMo = <K extends keyof ManoObra>(i: number, k: K, v: ManoObra[K]) => setManoObra((ms) => ms.map((m, j) => (j === i ? { ...m, [k]: v } : m)));
   const horasPersona = manoObra.reduce((a, m) => a + (Number(m.horas_estimadas) || 0) * (Number(m.operarios) || 1), 0);
   const resumen = cot?.resumen;
-  const listo1 = para === 'nuevo' || (para === 'cliente' ? !!clienteId : !!prospectoId);
+  const listo1 = para === 'nuevo' ? !!nuevo.nombre.trim() : para === 'cliente' ? !!clienteId : !!prospectoId;
   // Vista previa arriba de los pasos (o al costado en tablet horizontal): render, plano técnico y lo que se subió.
   const alCostado = useAlCostado();
   const prev = useVistaPrevia(sid, `${paso}|${render}|${svg?.length}|${resumen?.version}`, fotos.map((f) => f.uri));
@@ -143,7 +144,12 @@ export default function NuevoTrabajo() {
           </>}
           {para === 'prospecto' && <Selector etiqueta="Prospecto" valor={prospectoId} onChange={setProspectoId} placeholder="Elegí un prospecto…"
             opciones={(prospectos ?? []).map((p) => ({ valor: p.id, texto: nombreDe(p), sub: p.tipo_trabajo ?? undefined }))} />}
-          {para === 'nuevo' && <T v="chico">Poné nombre y teléfono en el texto: el cliente se crea al aprobar la cotización.</T>}
+          {para === 'nuevo' && <>
+            <Campo etiqueta="Nombre y apellido" value={nuevo.nombre} onChangeText={(v) => setNuevo((n) => ({ ...n, nombre: v }))} autoCapitalize="words" />
+            <Campo etiqueta="Teléfono" value={nuevo.telefono} onChangeText={(v) => setNuevo((n) => ({ ...n, telefono: v }))} keyboardType="phone-pad" />
+            <Campo etiqueta="Email (opcional)" value={nuevo.email} onChangeText={(v) => setNuevo((n) => ({ ...n, email: v }))} keyboardType="email-address" autoCapitalize="none" />
+            <T v="chico">El cliente queda en la cotización y se da de alta al aprobarla.</T>
+          </>}
         </Vidrio>
 
         <Vidrio style={{ gap: 12 }}>
